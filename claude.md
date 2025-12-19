@@ -1,424 +1,182 @@
-# OpenMFA - PIV PKI Self-Enrollment Client
+# OpenMFA - PIV Self-Enrollment Client
 
 ## Project Overview
 
-A self-enrollment client for PIV PKI infrastructure using Aventura PIV 4.5 Smart cards and OpenSC. This solution enables users to self-provision their PIV credentials for multi-factor authentication in enterprise environments.
+Self-enrollment client for PIV smart cards using Aventura PIV 4.5 cards and OpenSC. Designed for air-gapped, isolated environments with simple standalone operation.
 
 ## Technical Stack
 
-### Smart Card Hardware
-- **Card Type**: Aventura PIV 4.5 Smart Cards
-- **Interface**: PC/SC compliant readers
-- **Standard**: NIST SP 800-73-4 (PIV)
-
-### Core Dependencies
-- **OpenSC**: Open source smart card tools and libraries
-- **PKCS#11**: Cryptographic token interface
-- **OpenSSL**: Certificate and key management
-- **PC/SC Lite** (Linux) / **PC/SC** (Windows/macOS): Smart card middleware
-
-### Application Layer
-- **Backend**: Python/Node.js for enrollment server
-- **Frontend**: Electron or web-based UI for enrollment client
-- **Database**: PostgreSQL/SQLite for enrollment tracking
-- **CA Integration**: EJBCA, Microsoft ADCS, or custom CA
+- **Smart Cards**: Aventura PIV 4.5
+- **Interface**: OpenSC + PKCS#11
+- **Application**: Python CLI tool
+- **CA**: Local filesystem-based CA (OpenSSL)
+- **Database**: SQLite (local file)
 
 ## Repository Structure
 
 ```
 OpenMFA/
-├── docs/
-│   ├── architecture.md          # System architecture overview
-│   ├── api-reference.md         # API documentation
-│   ├── deployment.md            # Deployment guide
-│   ├── user-guide.md            # End-user enrollment guide
-│   └── security.md              # Security considerations
-├── client/
-│   ├── src/
-│   │   ├── card/                # Smart card operations
-│   │   │   ├── opensc.js        # OpenSC wrapper
-│   │   │   ├── pkcs11.js        # PKCS#11 interface
-│   │   │   ├── piv.js           # PIV operations
-│   │   │   └── reader.js        # Card reader detection
-│   │   ├── crypto/              # Cryptographic operations
-│   │   │   ├── keygen.js        # Key generation
-│   │   │   ├── csr.js           # Certificate signing request
-│   │   │   └── cert.js          # Certificate operations
-│   │   ├── ui/                  # User interface
-│   │   │   ├── enrollment.js    # Enrollment workflow
-│   │   │   ├── status.js        # Status display
-│   │   │   └── validation.js    # Input validation
-│   │   ├── api/                 # API client
-│   │   │   └── enrollment.js    # Enrollment API calls
-│   │   └── utils/
-│   │       ├── config.js        # Configuration management
-│   │       ├── logger.js        # Logging utilities
-│   │       └── errors.js        # Error handling
-│   ├── tests/
-│   │   ├── unit/
-│   │   └── integration/
-│   ├── package.json
-│   └── README.md
-├── server/
-│   ├── src/
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   │   ├── enrollment.js    # Enrollment endpoints
-│   │   │   │   ├── certificate.js   # Certificate management
-│   │   │   │   └── status.js        # Status endpoints
-│   │   │   └── middleware/
-│   │   │       ├── auth.js          # Authentication
-│   │   │       ├── validation.js    # Request validation
-│   │   │       └── ratelimit.js     # Rate limiting
-│   │   ├── ca/
-│   │   │   ├── interface.js         # CA abstraction layer
-│   │   │   ├── ejbca.js             # EJBCA integration
-│   │   │   ├── adcs.js              # Microsoft ADCS integration
-│   │   │   └── mock.js              # Mock CA for testing
-│   │   ├── database/
-│   │   │   ├── models/
-│   │   │   │   ├── enrollment.js
-│   │   │   │   ├── certificate.js
-│   │   │   │   └── user.js
-│   │   │   ├── migrations/
-│   │   │   └── seeds/
-│   │   ├── services/
-│   │   │   ├── enrollment.js        # Enrollment business logic
-│   │   │   ├── verification.js      # Identity verification
-│   │   │   └── notification.js      # Email/SMS notifications
-│   │   └── utils/
-│   │       ├── config.js
-│   │       ├── logger.js
-│   │       └── crypto.js
-│   ├── tests/
-│   ├── package.json
-│   └── README.md
+├── src/
+│   ├── card.py              # OpenSC/PKCS#11 operations
+│   ├── enrollment.py        # Enrollment workflow
+│   ├── ca.py                # Simple file-based CA
+│   └── cli.py               # Command-line interface
 ├── scripts/
-│   ├── setup/
-│   │   ├── install-opensc.sh        # OpenSC installation
-│   │   ├── configure-readers.sh     # Reader configuration
-│   │   └── test-card.sh             # Card testing script
-│   ├── admin/
-│   │   ├── revoke-cert.sh           # Certificate revocation
-│   │   ├── backup-db.sh             # Database backup
-│   │   └── reset-card.sh            # Card reset utility
-│   └── development/
-│       ├── mock-card.sh             # Mock card for testing
-│       └── seed-data.sh             # Test data generation
+│   ├── setup.sh             # Install OpenSC and dependencies
+│   ├── init-ca.sh           # Initialize CA structure
+│   └── reset-card.sh        # Reset/reinitialize card
 ├── config/
-│   ├── opensc.conf.example          # OpenSC configuration
-│   ├── server.yaml.example          # Server configuration
-│   ├── ca-config.yaml.example       # CA integration config
-│   └── client.json.example          # Client configuration
-├── docker/
-│   ├── Dockerfile.client            # Client container
-│   ├── Dockerfile.server            # Server container
-│   ├── docker-compose.yml           # Development environment
-│   └── docker-compose.prod.yml      # Production environment
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                   # Continuous integration
-│       ├── security-scan.yml        # Security scanning
-│       └── release.yml              # Release automation
-├── .gitignore
-├── LICENSE
+│   ├── opensc.conf          # OpenSC configuration
+│   └── settings.yaml        # Application settings
+├── ca/                      # CA directory (created at init)
+│   ├── ca-cert.pem
+│   ├── ca-key.pem
+│   ├── issued/              # Issued certificates
+│   └── index.txt            # Certificate index
+├── data/
+│   └── enrollments.db       # SQLite database
+├── requirements.txt
 ├── README.md
-└── claude.md                        # This file
-
+└── claude.md
 ```
 
 ## Core Components
 
-### 1. Card Management Module
-**Purpose**: Interface with Aventura PIV 4.5 cards via OpenSC
+### 1. Card Operations (card.py)
+- Detect card reader and PIV card
+- Initialize PIV applet
+- Generate RSA 2048 key pair on-card (slot 9A)
+- Extract public key
+- Write certificate to card
 
-**Key Features**:
-- Card detection and reader enumeration
-- PIV applet initialization
-- PIN/PUK management
-- Key slot management (9A, 9C, 9D, 9E)
-- Certificate storage operations
+### 2. Enrollment Workflow (enrollment.py)
+1. Detect card and reader
+2. Set user PIN (6-8 digits)
+3. Generate key pair on card
+4. Create CSR with user DN
+5. Sign certificate with local CA
+6. Write certificate to card
+7. Log enrollment to SQLite
 
-**OpenSC Integration**:
+### 3. Simple CA (ca.py)
+- File-based CA using OpenSSL
+- Issue certificates from CSR
+- Track issued certificates in index
+- No revocation (air-gapped environment)
+
+### 4. CLI Interface (cli.py)
 ```bash
-# Key operations
-pkcs15-init --create-pkcs15
-pkcs15-init --generate-key rsa/2048 --auth-id 01
-pkcs15-tool --list-keys
-pkcs11-tool --module opensc-pkcs11.so --list-slots
+# Initialize CA
+openmfa init-ca
+
+# Enroll new card
+openmfa enroll --cn "John Doe" --email "john@example.com"
+
+# List enrolled cards
+openmfa list
+
+# Reset card
+openmfa reset-card
 ```
 
-### 2. Enrollment Workflow
-**Steps**:
-1. **Pre-enrollment**
-   - Verify card reader connectivity
-   - Detect Aventura PIV 4.5 card
-   - Validate card is uninitialized or ready for enrollment
+## Enrollment Process
 
-2. **Identity Verification**
-   - User authentication (LDAP/AD/OAuth)
-   - Multi-factor verification
-   - Authorization check
-
-3. **PIN Setup**
-   - User sets PIN (6-8 digits)
-   - PUK generation and secure delivery
-   - Admin key handling
-
-4. **Key Generation**
-   - On-card RSA 2048/4096 key generation
-   - Key slots: Authentication (9A), Signature (9C), Key Management (9D), Card Authentication (9E)
-   - Public key extraction
-
-5. **Certificate Request**
-   - Generate CSR with user DN
-   - Submit to CA
-   - Retrieve signed certificate
-
-6. **Certificate Installation**
-   - Write certificate to card
-   - Verify installation
-   - Test authentication
-
-7. **Completion**
-   - Generate enrollment receipt
-   - Backup recovery codes
-   - User notification
-
-### 3. CA Integration Layer
-**Supported CAs**:
-- EJBCA (open source)
-- Microsoft Active Directory Certificate Services (ADCS)
-- Custom CA via REST API
-
-**Certificate Profiles**:
-- PIV Authentication Certificate (9A)
-- Digital Signature Certificate (9C)
-- Key Management Certificate (9D)
-- Card Authentication Certificate (9E)
-
-### 4. Security Features
-
-**Card Security**:
-- PIN retry limits (3 attempts)
-- PUK for PIN unblocking
-- Secure key generation (on-card)
-- Certificate pinning
-
-**Transport Security**:
-- TLS 1.3 for all API communication
-- Certificate-based client authentication
-- Mutual TLS (mTLS) support
-
-**Audit & Compliance**:
-- Comprehensive audit logging
-- Enrollment tracking
-- Certificate lifecycle management
-- NIST SP 800-73-4 compliance
-
-### 5. Platform Support
-
-**Operating Systems**:
-- Windows 10/11 (with Windows Hello integration)
-- macOS 11+ (with Keychain integration)
-- Linux (Ubuntu, RHEL, Debian)
-
-**Smart Card Readers**:
-- USB CCID-compliant readers
-- Built-in readers (laptops)
-- NFC readers (optional)
-
-## Development Phases
-
-### Phase 1: Foundation (Weeks 1-2)
-- [ ] Repository setup and structure
-- [ ] OpenSC integration and testing
-- [ ] Card detection and basic operations
-- [ ] Development environment with mock cards
-
-### Phase 2: Core Enrollment (Weeks 3-5)
-- [ ] Key generation workflow
-- [ ] CSR generation and submission
-- [ ] Mock CA integration
-- [ ] Certificate installation
-- [ ] Basic UI/CLI interface
-
-### Phase 3: Server Infrastructure (Weeks 6-8)
-- [ ] Enrollment server API
-- [ ] Database schema and models
-- [ ] Authentication and authorization
-- [ ] Real CA integration (EJBCA/ADCS)
-
-### Phase 4: Production Features (Weeks 9-11)
-- [ ] PIN/PUK management
-- [ ] Certificate renewal
-- [ ] Revocation handling
-- [ ] Multi-platform client builds
-- [ ] Admin dashboard
-
-### Phase 5: Security & Testing (Weeks 12-14)
-- [ ] Security audit
-- [ ] Penetration testing
-- [ ] Compliance validation
-- [ ] Documentation completion
-- [ ] Deployment guides
-
-## Configuration Examples
-
-### OpenSC Configuration (`opensc.conf`)
-```conf
-app default {
-    card_drivers = piv;
-
-    card_driver piv {
-        enable_pin_cache = false;
-        pin_cache_counter = 3;
-    }
-}
 ```
-
-### Aventura PIV 4.5 Specifications
-- **Chip**: JavaCard platform
-- **Memory**: 144KB EEPROM
-- **Algorithm Support**: RSA 2048/4096, ECC P-256/P-384
-- **PIV Slots**: 9A, 9C, 9D, 9E, 82-95 (retired)
-- **PIN Length**: 6-8 digits
-- **Interface**: ISO 7816 contact, optional contactless
-
-## API Endpoints
-
-### Enrollment API
+1. Insert card → Detect reader/card
+2. Enter PIN → Set user PIN (6-8 digits)
+3. Generate key → On-card RSA 2048 generation
+4. Create CSR → Build certificate request
+5. Sign cert → Local CA signs certificate
+6. Write to card → Store cert in slot 9A
+7. Done → Card ready for use
 ```
-POST   /api/v1/enrollment/initialize    - Start enrollment
-POST   /api/v1/enrollment/verify         - Verify identity
-POST   /api/v1/enrollment/request-cert   - Submit CSR
-GET    /api/v1/enrollment/status/:id     - Check status
-POST   /api/v1/enrollment/complete       - Finalize enrollment
-
-GET    /api/v1/certificates/:serial      - Get certificate
-POST   /api/v1/certificates/renew        - Renew certificate
-POST   /api/v1/certificates/revoke       - Revoke certificate
-
-GET    /api/v1/health                    - Health check
-GET    /api/v1/ca/status                 - CA connectivity
-```
-
-## Testing Strategy
-
-### Unit Tests
-- Card operations (mocked)
-- Cryptographic functions
-- API endpoints
-- Database operations
-
-### Integration Tests
-- End-to-end enrollment workflow
-- CA integration
-- Multi-platform testing
-- Reader compatibility
-
-### Security Tests
-- PIN brute-force protection
-- TLS configuration
-- Input validation
-- SQL injection prevention
-- XSS prevention
-
-## Deployment Models
-
-### 1. Enterprise On-Premises
-- Deployed within corporate network
-- Integrated with AD/LDAP
-- Internal CA (ADCS)
-
-### 2. Cloud-Hosted
-- SaaS enrollment service
-- Multi-tenant support
-- Cloud CA integration
-
-### 3. Hybrid
-- Cloud management
-- On-premises enrollment kiosks
-- Federated identity
 
 ## Dependencies
 
-### Client
-```json
-{
-  "node-pcsclite": "^0.7.x",
-  "pkcs11js": "^2.x.x",
-  "node-forge": "^1.3.x",
-  "electron": "^28.x.x"
-}
-```
-
-### Server
-```json
-{
-  "express": "^4.18.x",
-  "sequelize": "^6.x.x",
-  "pg": "^8.x.x",
-  "jsonwebtoken": "^9.x.x",
-  "helmet": "^7.x.x"
-}
-```
-
 ### System
-- OpenSC 0.23.0+
-- OpenSSL 3.0+
-- PC/SC Lite (Linux) or native PC/SC
-- Compatible smart card reader
-
-## Security Considerations
-
-1. **Key Generation**: Always generate keys on-card, never import
-2. **PIN Handling**: Never log or transmit PINs in plaintext
-3. **Certificate Validation**: Verify entire certificate chain
-4. **Audit Trail**: Log all enrollment and certificate operations
-5. **Access Control**: Role-based access for admin functions
-6. **Data Protection**: Encrypt sensitive data at rest
-7. **Secure Defaults**: Fail-safe configurations
-
-## Compliance & Standards
-
-- **NIST SP 800-73-4**: PIV Card Interface
-- **NIST SP 800-78-4**: Cryptographic Algorithms
-- **FIPS 201-3**: PIV of Federal Employees and Contractors
-- **ISO/IEC 7816**: Smart card standards
-- **PKCS#11 v2.40**: Cryptographic Token Interface
-
-## Future Enhancements
-
-- [ ] Biometric integration
-- [ ] Mobile device enrollment (via NFC)
-- [ ] Derived PIV credentials
-- [ ] Certificate transparency logging
-- [ ] Hardware security module (HSM) integration
-- [ ] Automated certificate lifecycle management
-- [ ] Web authentication (WebAuthn/FIDO2) support
-
-## Resources
-
-### Documentation
-- [OpenSC Wiki](https://github.com/OpenSC/OpenSC/wiki)
-- [NIST PIV Standards](https://csrc.nist.gov/projects/piv)
-- [Aventura Technologies](https://aventura.fi/)
-
-### Tools
-- OpenSC tools suite
-- pkcs11-tool
-- pkcs15-tool
-- OpenSSL
+- OpenSC (0.23.0+)
+- OpenSSL (3.0+)
 - pcscd (PC/SC daemon)
+- USB smart card reader
 
-### Testing
-- Virtual Smart Card (Windows)
-- vsmartcard (Linux)
-- Mock PKCS#11 libraries
+### Python
+```
+pyscard>=2.0
+cryptography>=41.0
+PyYAML>=6.0
+```
+
+## Configuration
+
+### settings.yaml
+```yaml
+ca:
+  directory: ./ca
+  validity_days: 365
+  key_size: 2048
+
+piv:
+  default_pin: "123456"
+  key_slot: "9A"
+  algorithm: "RSA2048"
+
+database:
+  path: ./data/enrollments.db
+```
+
+## Setup Instructions
+
+```bash
+# 1. Install system dependencies
+./scripts/setup.sh
+
+# 2. Install Python dependencies
+pip install -r requirements.txt
+
+# 3. Initialize CA
+python -m src.cli init-ca
+
+# 4. Enroll a card (card must be inserted)
+python -m src.cli enroll --cn "User Name"
+```
+
+## OpenSC Commands Reference
+
+```bash
+# List readers and cards
+opensc-tool --list-readers
+
+# Test PIV card
+pkcs15-tool --dump
+
+# Generate key on card
+pkcs15-init --generate-key rsa/2048 --auth-id 01 --id 01 --label "PIV AUTH"
+
+# List keys
+pkcs15-tool --list-keys
+
+# List certificates
+pkcs15-tool --list-certificates
+
+# Read certificate
+pkcs15-tool --read-certificate 01
+```
+
+## Security Notes
+
+1. **Air-gapped**: No network connectivity required
+2. **Key generation**: Always on-card, never exported
+3. **PIN handling**: User sets PIN, never stored
+4. **CA security**: Protect ca-key.pem file
+5. **Audit log**: All enrollments logged to SQLite
+
+## Standards Compliance
+
+- NIST SP 800-73-4 (PIV Card Interface)
+- ISO 7816 (Smart card standards)
+- PKCS#11 v2.40
 
 ---
 
-**Project Status**: Planning Phase
+**Environment**: Air-gapped, isolated systems
 **Last Updated**: 2025-12-19
-**Maintainer**: OpenMFA Team
