@@ -99,4 +99,33 @@ public static class PivDataObject
         PivSlot.Retired2 => RetiredCertificate2,
         _ => throw new ArgumentException($"No certificate object for slot {slot}")
     };
+
+    /// <summary>
+    /// Get OpenSC object ID (hex string) for a PIV slot
+    /// </summary>
+    public static string GetOpenScObjectId(PivSlot slot) => slot switch
+    {
+        PivSlot.Authentication => "01",          // PIV Authentication
+        PivSlot.Signature => "02",               // Digital Signature
+        PivSlot.KeyManagement => "03",           // Key Management
+        PivSlot.CardAuthentication => "04",      // Card Authentication
+        PivSlot.Retired1 => "05",                // Retired Key 1
+        PivSlot.Retired2 => "06",                // Retired Key 2
+        _ => throw new ArgumentException($"Unknown slot {slot}")
+    };
+}
+
+/// <summary>
+/// Helpers for converting PIV algorithms to OpenSC key types
+/// </summary>
+public static class PivAlgorithmHelper
+{
+    public static string ToOpenScKeyType(PivAlgorithm algorithm) => algorithm switch
+    {
+        PivAlgorithm.Rsa1024 => "RSA:1024",
+        PivAlgorithm.Rsa2048 => "RSA:2048",
+        PivAlgorithm.EccP256 => "EC:prime256v1",
+        PivAlgorithm.EccP384 => "EC:secp384r1",
+        _ => throw new ArgumentException($"Unknown algorithm {algorithm}")
+    };
 }

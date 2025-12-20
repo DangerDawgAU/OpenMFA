@@ -1,9 +1,9 @@
-using OpenMFA.SmartCard.PcSc;
+using OpenMFA.SmartCard.OpenSC;
 using OpenMFA.SmartCard.Piv;
 
 namespace OpenMFA.CLI;
 
-class Program
+class ProgramOpenSc
 {
     static async Task<int> Main(string[] args)
     {
@@ -19,13 +19,13 @@ class Program
 
             return command switch
             {
-                "detect" => await DetectCommand.Execute(args[1..]),
-                "info" => await InfoCommand.Execute(args[1..]),
-                "read" => await ReadCommand.Execute(args[1..]),
-                "write" => await WriteCommand.Execute(args[1..]),
-                "delete" => await DeleteCommand.Execute(args[1..]),
-                "generate-key" => await GenerateKeyCommand.Execute(args[1..]),
-                "list" => await ListCommand.Execute(args[1..]),
+                "detect" => await DetectCommandOpenSc.Execute(args[1..]),
+                "info" => await InfoCommandOpenSc.Execute(args[1..]),
+                "read" => await ReadCommandOpenSc.Execute(args[1..]),
+                "write" => await WriteCommandOpenSc.Execute(args[1..]),
+                "delete" => await DeleteCommandOpenSc.Execute(args[1..]),
+                "generate-key" => await GenerateKeyCommandOpenSc.Execute(args[1..]),
+                "list" => await ListCommandOpenSc.Execute(args[1..]),
                 "help" or "--help" or "-h" => ShowHelp(),
                 _ => ShowUnknownCommand(command)
             };
@@ -35,24 +35,28 @@ class Program
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine($"Error: {ex.Message}");
             Console.ResetColor();
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"  Details: {ex.InnerException.Message}");
+            }
             return 1;
         }
     }
 
     static int ShowHelp()
     {
-        Console.WriteLine("OpenMFA - PIV Smart Card Operations");
+        Console.WriteLine("OpenMFA - PIV Smart Card Operations (using OpenSC)");
         Console.WriteLine();
         Console.WriteLine("Usage: openmfa <command> [options]");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  detect              Detect card readers and cards");
+        Console.WriteLine("  detect              Detect card readers and PIV cards");
         Console.WriteLine("  info                Show card information");
-        Console.WriteLine("  read <slot>         Read data from card slot");
-        Console.WriteLine("  write <slot> <file> Write data to card slot");
-        Console.WriteLine("  delete <slot>       Delete data from card slot");
+        Console.WriteLine("  read <slot>         Read certificate from card slot");
+        Console.WriteLine("  write <slot> <file> Write certificate to card slot");
+        Console.WriteLine("  delete <slot>       Delete certificate from card slot");
         Console.WriteLine("  generate-key <slot> [algo] Generate key pair on card");
-        Console.WriteLine("  list                List all data objects on card");
+        Console.WriteLine("  list                List all certificates on card");
         Console.WriteLine("  help                Show this help message");
         Console.WriteLine();
         Console.WriteLine("Slots:");
@@ -71,8 +75,13 @@ class Program
         Console.WriteLine("  openmfa detect");
         Console.WriteLine("  openmfa generate-key 9A RSA2048");
         Console.WriteLine("  openmfa write 9A cert.der");
-        Console.WriteLine("  openmfa read 9A");
+        Console.WriteLine("  openmfa read 9A output.der");
         Console.WriteLine("  openmfa delete 9A");
+        Console.WriteLine();
+        Console.WriteLine("Requirements:");
+        Console.WriteLine("  - OpenSC must be installed");
+        Console.WriteLine("  - PC/SC daemon must be running");
+        Console.WriteLine("  - PIV-compatible smart card");
         return 0;
     }
 
