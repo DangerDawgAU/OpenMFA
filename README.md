@@ -4,7 +4,7 @@ Minimal PIV smart card operations using **OpenSC** for .NET 9 C#.
 
 ## Overview
 
-OpenMFA is a command-line tool for managing PIV (Personal Identity Verification) smart cards. It uses OpenSC's `pkcs11-tool` and `opensc-tool` for all card operations, providing a simple .NET interface for:
+OpenMFA is a tool for managing PIV (Personal Identity Verification) smart cards, available as both a command-line interface and a graphical user interface. It uses OpenSC's `pkcs11-tool` and `opensc-tool` for all card operations, providing a simple .NET interface for:
 
 - Reading/writing certificates to/from PIV cards
 - Generating RSA and ECC key pairs on-card
@@ -42,7 +42,8 @@ OpenMFA/
 │   ├── OpenMFA.SmartCard/     # Smart card library
 │   │   ├── OpenSC/            # OpenSC CLI wrappers
 │   │   └── Piv/               # PIV abstractions
-│   └── OpenMFA.CLI/           # Command-line interface
+│   ├── OpenMFA.CLI/           # Command-line interface
+│   └── OpenMFA.GUI/           # Windows Forms GUI
 ├── ARCHITECTURE_SIMPLE.md     # Architecture document
 └── README.md                  # This file
 ```
@@ -55,13 +56,31 @@ dotnet build
 
 ## Usage
 
-### Detect Cards
+### GUI Application
+
+The easiest way to use OpenMFA is through the graphical user interface:
+
+```bash
+dotnet run --project src/OpenMFA.GUI
+```
+
+The GUI provides a simple interface for all operations:
+
+1. **Card Information**: Detect cards and readers, view card details, list certificates
+2. **Certificate Management**: Read, write, and delete certificates from specific PIV slots
+3. **Key Generation**: Generate RSA or ECC key pairs directly on the card
+
+All operations display their output in the built-in console window.
+
+### Command-Line Interface
+
+#### Detect Cards
 
 ```bash
 dotnet run --project src/OpenMFA.CLI -- detect
 ```
 
-### Generate Key Pair
+#### Generate Key Pair
 
 ```bash
 # Generate RSA 2048-bit key in slot 9A (PIV Authentication)
@@ -71,13 +90,13 @@ dotnet run --project src/OpenMFA.CLI -- generate-key 9A RSA2048
 dotnet run --project src/OpenMFA.CLI -- generate-key 9A ECCP256
 ```
 
-### Write Certificate
+#### Write Certificate
 
 ```bash
 dotnet run --project src/OpenMFA.CLI -- write 9A certificate.der
 ```
 
-### Read Certificate
+#### Read Certificate
 
 ```bash
 # Read and display (hex dump)
@@ -87,13 +106,13 @@ dotnet run --project src/OpenMFA.CLI -- read 9A
 dotnet run --project src/OpenMFA.CLI -- read 9A output.der
 ```
 
-### List Certificates
+#### List Certificates
 
 ```bash
 dotnet run --project src/OpenMFA.CLI -- list
 ```
 
-### Delete Certificate
+#### Delete Certificate
 
 ```bash
 dotnet run --project src/OpenMFA.CLI -- delete 9A
