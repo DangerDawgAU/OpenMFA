@@ -19,13 +19,13 @@ class ProgramOpenSc
 
             return command switch
             {
-                "detect" => await DetectCommandOpenSc.Execute(args[1..]),
-                "info" => await InfoCommandOpenSc.Execute(args[1..]),
-                "read" => await ReadCommandOpenSc.Execute(args[1..]),
-                "write" => await WriteCommandOpenSc.Execute(args[1..]),
-                "delete" => await DeleteCommandOpenSc.Execute(args[1..]),
-                "generate-key" => await GenerateKeyCommandOpenSc.Execute(args[1..]),
-                "list" => await ListCommandOpenSc.Execute(args[1..]),
+                "detect" => await DetectCommand(args[1..]),
+                "info" => await InfoCommand(args[1..]),
+                "read" => await ReadCommand(args[1..]),
+                "write" => await WriteCommand(args[1..]),
+                "delete" => await DeleteCommand(args[1..]),
+                "generate-key" => await GenerateKeyCommand(args[1..]),
+                "list" => await ListCommand(args[1..]),
                 "help" or "--help" or "-h" => ShowHelp(),
                 _ => ShowUnknownCommand(command)
             };
@@ -41,6 +41,284 @@ class ProgramOpenSc
             }
             return 1;
         }
+    }
+
+    static async Task<int> DetectCommand(string[] args)
+    {
+        var context = new OpenScContext();
+
+        Console.WriteLine("--- Card Readers ---");
+        var readers = await context.ListReadersAsync();
+        if (readers.Any())
+        {
+            foreach (var reader in readers)
+            {
+                Console.WriteLine($"Reader: {reader}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("No card readers found.");
+        }
+
+        Console.WriteLine("\n--- Available Slots ---");
+        var slots = await context.GetSlotsAsync();
+        if (slots.Any())
+        {
+            foreach (var slot in slots)
+            {
+                Console.WriteLine($"Slot {slot.SlotId}: {slot.TokenLabel}");
+                if (slot.TokenPresent)
+                {
+                    Console.WriteLine($"  Token present: Yes");
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("No slots found.");
+        }
+
+        return 0;
+    }
+
+    static async Task<int> InfoCommand(string[] args)
+    {
+        var context = new OpenScContext();
+        var slot = await context.GetFirstSlotWithTokenAsync();
+
+        if (slot == null)
+        {
+            Console.WriteLine("No card found. Please insert a PIV card.");
+            return 1;
+        }
+
+        Console.WriteLine("--- Card Information ---");
+        Console.WriteLine($"Slot ID: {slot.SlotId}");
+        Console.WriteLine($"Token Label: {slot.TokenLabel}");
+        Console.WriteLine($"Token Present: {slot.TokenPresent}");
+
+        return 0;
+    }
+
+    static async Task<int> ReadCommand(string[] args)
+    {
+        if (args.Length < 1)
+        {
+            Console.WriteLine("Error: Slot parameter required.");
+            Console.WriteLine("Usage: openmfa read <slot> [output-file]");
+            return 1;
+        }
+
+        var slotHex = args[0];
+        if (!byte.TryParse(slotHex, System.Globalization.NumberStyles.HexNumber, null, out var slotByte))
+        {
+            Console.WriteLine($"Error: Invalid slot '{slotHex}'. Must be hex (9A, 9C, 9D, 9E).");
+            return 1;
+        }
+
+        var slot = (PivSlot)slotByte;
+        var outputFile = args.Length > 1 ? args[1] : $"cert_{slotHex}.der";
+
+        var context = new OpenScContext();
+        var slotInfo = await context.GetFirstSlotWithTokenAsync();
+
+        if (slotInfo == null)
+        {
+            Console.WriteLine("No card found.");
+            return 1;
+        }
+
+        using var pivCard = new PivCardOpenSc(slotInfo.SlotId);
+        var certData = await pivCard.GetCertificateAsync(slot);
+
+        if (certData == null || certData.Length == 0)
+        {
+            Console.WriteLine($"No certificate found in slot {slotHex}.");
+            return 1;
+        }
+
+        await File.WriteAllBytesAsync(outputFile, certData);
+        Console.WriteLine($"Certificate saved to: {outputFile}");
+        Console.WriteLine($"Size: {certData.Length} bytes");
+
+        return 0;
+    }
+
+    static async Task<int> WriteCommand(string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Error: Slot and file parameters required.");
+            Console.WriteLine("Usage: openmfa write <slot> <cert-file>");
+            return 1;
+        }
+
+        var slotHex = args[0];
+        if (!byte.TryParse(slotHex, System.Globalization.NumberStyles.HexNumber, null, out var slotByte))
+        {
+            Console.WriteLine($"Error: Invalid slot '{slotHex}'. Must be hex (9A, 9C, 9D, 9E).");
+            return 1;
+        }
+
+        var slot = (PivSlot)slotByte;
+        var certFile = args[1];
+
+        if (!File.Exists(certFile))
+        {
+            Console.WriteLine($"Error: File not found: {certFile}");
+            return 1;
+        }
+
+        var certData = await File.ReadAllBytesAsync(certFile);
+        Console.WriteLine($"Certificate file size: {certData.Length} bytes");
+
+        var context = new OpenScContext();
+        var slotInfo = await context.GetFirstSlotWithTokenAsync();
+
+        if (slotInfo == null)
+        {
+            Console.WriteLine("No card found.");
+            return 1;
+        }
+
+        using var pivCard = new PivCardOpenSc(slotInfo.SlotId);
+        await pivCard.PutCertificateAsync(slot, certData);
+
+        Console.WriteLine($"Certificate written successfully to slot {slotHex}.");
+        return 0;
+    }
+
+    static async Task<int> DeleteCommand(string[] args)
+    {
+        if (args.Length < 1)
+        {
+            Console.WriteLine("Error: Slot parameter required.");
+            Console.WriteLine("Usage: openmfa delete <slot>");
+            return 1;
+        }
+
+        var slotHex = args[0];
+        if (!byte.TryParse(slotHex, System.Globalization.NumberStyles.HexNumber, null, out var slotByte))
+        {
+            Console.WriteLine($"Error: Invalid slot '{slotHex}'. Must be hex (9A, 9C, 9D, 9E).");
+            return 1;
+        }
+
+        var slot = (PivSlot)slotByte;
+
+        var context = new OpenScContext();
+        var slotInfo = await context.GetFirstSlotWithTokenAsync();
+
+        if (slotInfo == null)
+        {
+            Console.WriteLine("No card found.");
+            return 1;
+        }
+
+        using var pivCard = new PivCardOpenSc(slotInfo.SlotId);
+        await pivCard.DeleteCertificateAsync(slot);
+
+        Console.WriteLine($"Certificate deleted from slot {slotHex}.");
+        return 0;
+    }
+
+    static async Task<int> GenerateKeyCommand(string[] args)
+    {
+        if (args.Length < 1)
+        {
+            Console.WriteLine("Error: Slot parameter required.");
+            Console.WriteLine("Usage: openmfa generate-key <slot> [algorithm]");
+            return 1;
+        }
+
+        var slotHex = args[0];
+        if (!byte.TryParse(slotHex, System.Globalization.NumberStyles.HexNumber, null, out var slotByte))
+        {
+            Console.WriteLine($"Error: Invalid slot '{slotHex}'. Must be hex (9A, 9C, 9D, 9E).");
+            return 1;
+        }
+
+        var slot = (PivSlot)slotByte;
+        var algorithm = PivAlgorithm.Rsa2048; // Default
+
+        if (args.Length > 1)
+        {
+            algorithm = args[1].ToUpperInvariant() switch
+            {
+                "RSA1024" => PivAlgorithm.Rsa1024,
+                "RSA2048" => PivAlgorithm.Rsa2048,
+                "ECCP256" => PivAlgorithm.EccP256,
+                "ECCP384" => PivAlgorithm.EccP384,
+                _ => throw new ArgumentException($"Unknown algorithm: {args[1]}")
+            };
+        }
+
+        Console.WriteLine($"Generating {algorithm} key pair in slot {slotHex}...");
+        Console.WriteLine("This may take a few moments...");
+
+        var context = new OpenScContext();
+        var slotInfo = await context.GetFirstSlotWithTokenAsync();
+
+        if (slotInfo == null)
+        {
+            Console.WriteLine("No card found.");
+            return 1;
+        }
+
+        using var pivCard = new PivCardOpenSc(slotInfo.SlotId);
+        var publicKey = await pivCard.GenerateKeyPairAsync(slot, algorithm);
+
+        if (publicKey != null && publicKey.Length > 0)
+        {
+            Console.WriteLine("Key pair generated successfully!");
+            Console.WriteLine($"Public key size: {publicKey.Length} bytes");
+        }
+        else
+        {
+            Console.WriteLine("Key generation completed.");
+        }
+
+        return 0;
+    }
+
+    static async Task<int> ListCommand(string[] args)
+    {
+        var context = new OpenScContext();
+        var slotInfo = await context.GetFirstSlotWithTokenAsync();
+
+        if (slotInfo == null)
+        {
+            Console.WriteLine("No card found.");
+            return 1;
+        }
+
+        using var pivCard = new PivCardOpenSc(slotInfo.SlotId);
+
+        Console.WriteLine("--- Certificates on Card ---");
+        var slots = new[] { PivSlot.Authentication, PivSlot.Signature, PivSlot.KeyManagement, PivSlot.CardAuthentication };
+
+        foreach (var slot in slots)
+        {
+            try
+            {
+                var certData = await pivCard.GetCertificateAsync(slot);
+                if (certData != null && certData.Length > 0)
+                {
+                    Console.WriteLine($"Slot {slot:X}: Certificate found ({certData.Length} bytes)");
+                }
+                else
+                {
+                    Console.WriteLine($"Slot {slot:X}: No certificate");
+                }
+            }
+            catch
+            {
+                Console.WriteLine($"Slot {slot:X}: No certificate");
+            }
+        }
+
+        return 0;
     }
 
     static int ShowHelp()

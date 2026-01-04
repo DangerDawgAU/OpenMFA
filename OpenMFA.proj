@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.Build.Traversal/4.1.0">
+  <ItemGroup>
+    <ProjectReference Include="src\OpenMFA.GUI\OpenMFA.GUI.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <DefaultProject>src\OpenMFA.GUI\OpenMFA.GUI.csproj</DefaultProject>
+  </PropertyGroup>
+
+  <Target Name="Run" DependsOnTargets="Build">
+    <Exec Command="dotnet run --project $(DefaultProject) --no-build" />
+  </Target>
+</Project>

@@ -12,7 +12,7 @@ namespace OpenMFA.GUI
     public partial class MainForm : Form
     {
         private OpenScContext? _context;
-        private string? _currentSlotId;
+        private uint? _currentSlotId;
 
         public MainForm()
         {
@@ -103,11 +103,11 @@ namespace OpenMFA.GUI
                 {
                     foreach (var slot in slots)
                     {
-                        AppendOutput($"Slot {slot.Id}: {slot.Description}");
+                        AppendOutput($"Slot {slot.SlotId}: {slot.TokenLabel}");
                         if (slot.TokenPresent)
                         {
-                            AppendOutput($"  Token: {slot.TokenLabel}");
-                            _currentSlotId = slot.Id;
+                            AppendOutput($"  Token present: Yes");
+                            _currentSlotId = slot.SlotId;
                         }
                     }
                 }
@@ -143,10 +143,9 @@ namespace OpenMFA.GUI
                     return;
                 }
 
-                _currentSlotId = slot.Id;
+                _currentSlotId = slot.SlotId;
                 AppendOutput($"\n--- Card Information ---");
-                AppendOutput($"Slot ID: {slot.Id}");
-                AppendOutput($"Description: {slot.Description}");
+                AppendOutput($"Slot ID: {slot.SlotId}");
                 AppendOutput($"Token Label: {slot.TokenLabel}");
                 AppendOutput($"Token Present: {slot.TokenPresent}");
                 AppendOutput("\nCard info retrieved successfully.");
@@ -164,13 +163,13 @@ namespace OpenMFA.GUI
 
             try
             {
-                if (string.IsNullOrEmpty(_currentSlotId))
+                if (!_currentSlotId.HasValue)
                 {
                     AppendOutput("\nNo card detected. Please click 'Detect Card' first.");
                     return;
                 }
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
 
                 AppendOutput("\n--- Certificates on Card ---");
                 var slots = new[]
@@ -220,7 +219,7 @@ namespace OpenMFA.GUI
 
             try
             {
-                if (string.IsNullOrEmpty(_currentSlotId))
+                if (!_currentSlotId.HasValue)
                 {
                     AppendOutput("\nNo card detected. Please click 'Detect Card' first.");
                     return;
@@ -235,7 +234,7 @@ namespace OpenMFA.GUI
 
                 if (saveDialog.ShowDialog() == DialogResult.OK)
                 {
-                    using var pivCard = new PivCardOpenSc(_currentSlotId);
+                    using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
                     var certData = await pivCard.GetCertificateAsync(slot);
 
                     if (certData == null || certData.Length == 0)
@@ -281,7 +280,7 @@ namespace OpenMFA.GUI
 
             try
             {
-                if (string.IsNullOrEmpty(_currentSlotId))
+                if (!_currentSlotId.HasValue)
                 {
                     AppendOutput("\nNo card detected. Please click 'Detect Card' first.");
                     return;
@@ -290,7 +289,7 @@ namespace OpenMFA.GUI
                 var certData = await File.ReadAllBytesAsync(openDialog.FileName);
                 AppendOutput($"Certificate file size: {certData.Length} bytes");
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
                 await pivCard.PutCertificateAsync(slot, certData);
 
                 AppendOutput($"\nCertificate written successfully to slot {slot:X}.");
@@ -327,13 +326,13 @@ namespace OpenMFA.GUI
 
             try
             {
-                if (string.IsNullOrEmpty(_currentSlotId))
+                if (!_currentSlotId.HasValue)
                 {
                     AppendOutput("\nNo card detected. Please click 'Detect Card' first.");
                     return;
                 }
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
                 await pivCard.DeleteCertificateAsync(slot);
 
                 AppendOutput($"\nCertificate deleted successfully from slot {slot:X}.");
@@ -372,13 +371,13 @@ namespace OpenMFA.GUI
 
             try
             {
-                if (string.IsNullOrEmpty(_currentSlotId))
+                if (!_currentSlotId.HasValue)
                 {
                     AppendOutput("\nNo card detected. Please click 'Detect Card' first.");
                     return;
                 }
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
                 var publicKey = await pivCard.GenerateKeyPairAsync(slot, algorithm);
 
                 if (publicKey != null && publicKey.Length > 0)
