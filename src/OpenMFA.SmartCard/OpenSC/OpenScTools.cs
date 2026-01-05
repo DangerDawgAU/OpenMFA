@@ -23,7 +23,8 @@ public class OpenScTools
     }
 
     /// <summary>
-    /// List all card readers
+    /// List all card readers using opensc-tool
+    /// Supports: contact readers, NFC/contactless readers, USB readers, PCSC readers
     /// </summary>
     public async Task<List<string>> ListReadersAsync(CancellationToken ct = default)
     {
@@ -32,12 +33,22 @@ public class OpenScTools
 
         foreach (var line in output.Split('\n'))
         {
-            if (line.Contains("Reader") && !line.Contains("Slot"))
+            var trimmed = line.Trim();
+
+            // Parse table format: "Nr.  Card  Features  Name"
+            // Skip header and empty lines
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#") || trimmed.StartsWith("Nr."))
+                continue;
+
+            // Lines with reader info start with a number
+            var parts = trimmed.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3 && uint.TryParse(parts[0], out _))
             {
-                var parts = line.Split(':');
-                if (parts.Length > 1)
+                // Reader name is everything after the first 3 columns (Nr, Card, Features)
+                var readerName = string.Join(" ", parts.Skip(3));
+                if (!string.IsNullOrWhiteSpace(readerName))
                 {
-                    readers.Add(parts[1].Trim());
+                    readers.Add(readerName);
                 }
             }
         }
@@ -46,48 +57,61 @@ public class OpenScTools
     }
 
     /// <summary>
-    /// List PKCS#11 slots
+    /// List PKCS#11 slots using opensc-tool
+    /// Supports: contact readers, NFC/contactless readers, USB readers, PCSC readers
+    /// Works with PIV cards (YubiKey), PKCS#15 cards (MyEID), and NFC-enabled cards
     /// </summary>
     public async Task<List<Pkcs11SlotInfo>> ListSlotsAsync(CancellationToken ct = default)
     {
-        var output = await RunCommandAsync(_pkcs11ToolPath, "--list-slots", ct);
+        var output = await RunCommandAsync(_openscToolPath, "--list-readers", ct);
         var slots = new List<Pkcs11SlotInfo>();
-
-        Pkcs11SlotInfo? currentSlot = null;
 
         foreach (var line in output.Split('\n'))
         {
             var trimmed = line.Trim();
 
-            if (trimmed.StartsWith("Slot "))
-            {
-                if (currentSlot != null)
-                    slots.Add(currentSlot);
+            // Parse table format: "Nr.  Card  Features  Name"
+            // Example outputs:
+            //   "0    Yes             Broadcom Corp Contacted Smartcard"  (contact reader)
+            //   "0    Yes             ACS ACR122U PICC Interface 0"       (NFC reader)
+            //   "0    Yes             Yubico YubiKey CCID 0"               (USB PIV)
 
-                currentSlot = new Pkcs11SlotInfo();
-                var parts = trimmed.Split(' ');
-                if (parts.Length > 1 && uint.TryParse(parts[1], out var slotId))
-                {
-                    currentSlot.SlotId = slotId;
-                }
-            }
-            else if (currentSlot != null)
+            // Skip header and empty lines
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#") || trimmed.StartsWith("Nr."))
+                continue;
+
+            // Lines with reader info start with a number
+            var parts = trimmed.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2 && uint.TryParse(parts[0], out var slotId))
             {
-                if (trimmed.Contains("token label"))
+                // parts[0] = slot number
+                // parts[1] = "Yes" or "No" for card presence
+                // parts[2] = Features (optional, may be empty)
+                // parts[3+] = Reader name
+
+                var hasCard = parts[1].Equals("Yes", StringComparison.OrdinalIgnoreCase);
+
+                // Reader name starts at index 2 or 3 depending on whether Features column is present
+                // We'll just take everything after the Card column
+                var readerName = parts.Length > 2 ? string.Join(" ", parts.Skip(2)) : "Unknown";
+
+                // If the reader name is empty or just whitespace, it means there was a Features column
+                // In that case, take from index 3+
+                if (string.IsNullOrWhiteSpace(readerName) && parts.Length > 3)
                 {
-                    var parts = trimmed.Split(':');
-                    if (parts.Length > 1)
-                    {
-                        currentSlot.TokenLabel = parts[1].Trim();
-                        // If we have a token label, a token is present
-                        currentSlot.TokenPresent = !string.IsNullOrWhiteSpace(currentSlot.TokenLabel);
-                    }
+                    readerName = string.Join(" ", parts.Skip(3));
                 }
+
+                var slot = new Pkcs11SlotInfo
+                {
+                    SlotId = slotId,
+                    TokenPresent = hasCard,
+                    TokenLabel = hasCard ? readerName.Trim() : string.Empty
+                };
+
+                slots.Add(slot);
             }
         }
-
-        if (currentSlot != null)
-            slots.Add(currentSlot);
 
         return slots;
     }
