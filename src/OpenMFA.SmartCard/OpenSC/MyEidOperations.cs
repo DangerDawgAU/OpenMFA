@@ -484,6 +484,16 @@ public class MyEidOperations
 
         await process.WaitForExitAsync(ct);
 
+        // Log command completion
+        if (process.ExitCode == 0)
+        {
+            _commandLogger?.Invoke($"  ✓ Command completed (exit code: 0)");
+        }
+        else
+        {
+            _commandLogger?.Invoke($"  ✗ Command failed (exit code: {process.ExitCode})");
+        }
+
         if (process.ExitCode != 0)
         {
             var errorMsg = error.ToString();
