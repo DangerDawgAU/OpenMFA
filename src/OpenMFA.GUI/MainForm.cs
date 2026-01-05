@@ -18,6 +18,18 @@ namespace OpenMFA.GUI
         {
             InitializeComponent();
             InitializeComboBoxes();
+
+            // Wire up tab change event to update MyEID tab when switched
+            tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
+        }
+
+        private void TabControl_SelectedIndexChanged(object? sender, EventArgs e)
+        {
+            // When switching to MyEID tab, update it with current reader
+            if (tabControl.SelectedTab == tabPageMyEID && _currentSlotId.HasValue)
+            {
+                myEidTab.SetReader(_currentSlotId.Value);
+            }
         }
 
         private void InitializeComboBoxes()
@@ -115,6 +127,9 @@ namespace OpenMFA.GUI
                         {
                             AppendOutput($"  Token present: Yes");
                             _currentSlotId = slot.SlotId;
+
+                            // Update MyEID tab with detected reader
+                            myEidTab.SetReader(_currentSlotId.Value);
                         }
                     }
                 }

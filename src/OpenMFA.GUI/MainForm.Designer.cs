@@ -46,19 +46,67 @@ namespace OpenMFA.GUI
             this.btnGenerateKey = new System.Windows.Forms.Button();
             this.textBoxOutput = new System.Windows.Forms.TextBox();
             this.labelOutput = new System.Windows.Forms.Label();
+            this.tabControl = new System.Windows.Forms.TabControl();
+            this.tabPagePIV = new System.Windows.Forms.TabPage();
+            this.tabPageMyEID = new System.Windows.Forms.TabPage();
+            this.myEidTab = new OpenMFA.GUI.MyEidTab();
+            this.tabControl.SuspendLayout();
+            this.tabPagePIV.SuspendLayout();
             this.groupBoxCardInfo.SuspendLayout();
             this.groupBoxCertificates.SuspendLayout();
             this.groupBoxKeyGeneration.SuspendLayout();
             this.SuspendLayout();
+            //
+            // tabControl
+            //
+            this.tabControl.Controls.Add(this.tabPagePIV);
+            this.tabControl.Controls.Add(this.tabPageMyEID);
+            this.tabControl.Location = new System.Drawing.Point(12, 12);
+            this.tabControl.Name = "tabControl";
+            this.tabControl.SelectedIndex = 0;
+            this.tabControl.Size = new System.Drawing.Size(760, 370);
+            this.tabControl.TabIndex = 0;
+            //
+            // tabPagePIV
+            //
+            this.tabPagePIV.Controls.Add(this.groupBoxCardInfo);
+            this.tabPagePIV.Controls.Add(this.groupBoxCertificates);
+            this.tabPagePIV.Controls.Add(this.groupBoxKeyGeneration);
+            this.tabPagePIV.Location = new System.Drawing.Point(4, 24);
+            this.tabPagePIV.Name = "tabPagePIV";
+            this.tabPagePIV.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPagePIV.Size = new System.Drawing.Size(752, 342);
+            this.tabPagePIV.TabIndex = 0;
+            this.tabPagePIV.Text = "PIV Operations";
+            this.tabPagePIV.UseVisualStyleBackColor = true;
+            //
+            // tabPageMyEID
+            //
+            this.tabPageMyEID.Controls.Add(this.myEidTab);
+            this.tabPageMyEID.Location = new System.Drawing.Point(4, 24);
+            this.tabPageMyEID.Name = "tabPageMyEID";
+            this.tabPageMyEID.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageMyEID.Size = new System.Drawing.Size(752, 342);
+            this.tabPageMyEID.TabIndex = 1;
+            this.tabPageMyEID.Text = "MyEID Setup";
+            this.tabPageMyEID.UseVisualStyleBackColor = true;
+            //
+            // myEidTab
+            //
+            this.myEidTab.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.myEidTab.Location = new System.Drawing.Point(3, 3);
+            this.myEidTab.Name = "myEidTab";
+            this.myEidTab.Size = new System.Drawing.Size(746, 336);
+            this.myEidTab.TabIndex = 0;
             //
             // groupBoxCardInfo
             //
             this.groupBoxCardInfo.Controls.Add(this.btnDetect);
             this.groupBoxCardInfo.Controls.Add(this.btnInfo);
             this.groupBoxCardInfo.Controls.Add(this.btnList);
-            this.groupBoxCardInfo.Location = new System.Drawing.Point(12, 12);
+            this.groupBoxCardInfo.Location = new System.Drawing.Point(6, 6);
             this.groupBoxCardInfo.Name = "groupBoxCardInfo";
-            this.groupBoxCardInfo.Size = new System.Drawing.Size(760, 80);
+            this.groupBoxCardInfo.Size = new System.Drawing.Size(740, 80);
             this.groupBoxCardInfo.TabIndex = 0;
             this.groupBoxCardInfo.TabStop = false;
             this.groupBoxCardInfo.Text = "Card Information";
@@ -100,9 +148,9 @@ namespace OpenMFA.GUI
             this.groupBoxCertificates.Controls.Add(this.btnRead);
             this.groupBoxCertificates.Controls.Add(this.btnWrite);
             this.groupBoxCertificates.Controls.Add(this.btnDelete);
-            this.groupBoxCertificates.Location = new System.Drawing.Point(12, 100);
+            this.groupBoxCertificates.Location = new System.Drawing.Point(6, 92);
             this.groupBoxCertificates.Name = "groupBoxCertificates";
-            this.groupBoxCertificates.Size = new System.Drawing.Size(760, 100);
+            this.groupBoxCertificates.Size = new System.Drawing.Size(740, 100);
             this.groupBoxCertificates.TabIndex = 1;
             this.groupBoxCertificates.TabStop = false;
             this.groupBoxCertificates.Text = "Certificate Management";
@@ -162,9 +210,9 @@ namespace OpenMFA.GUI
             this.groupBoxKeyGeneration.Controls.Add(this.labelAlgorithm);
             this.groupBoxKeyGeneration.Controls.Add(this.comboBoxAlgorithm);
             this.groupBoxKeyGeneration.Controls.Add(this.btnGenerateKey);
-            this.groupBoxKeyGeneration.Location = new System.Drawing.Point(12, 210);
+            this.groupBoxKeyGeneration.Location = new System.Drawing.Point(6, 198);
             this.groupBoxKeyGeneration.Name = "groupBoxKeyGeneration";
-            this.groupBoxKeyGeneration.Size = new System.Drawing.Size(760, 100);
+            this.groupBoxKeyGeneration.Size = new System.Drawing.Size(740, 100);
             this.groupBoxKeyGeneration.TabIndex = 2;
             this.groupBoxKeyGeneration.TabStop = false;
             this.groupBoxKeyGeneration.Text = "Key Generation";
@@ -218,38 +266,39 @@ namespace OpenMFA.GUI
             // labelOutput
             //
             this.labelOutput.AutoSize = true;
-            this.labelOutput.Location = new System.Drawing.Point(12, 320);
+            this.labelOutput.Location = new System.Drawing.Point(12, 390);
             this.labelOutput.Name = "labelOutput";
             this.labelOutput.Size = new System.Drawing.Size(48, 15);
-            this.labelOutput.TabIndex = 3;
+            this.labelOutput.TabIndex = 1;
             this.labelOutput.Text = "Output:";
             //
             // textBoxOutput
             //
             this.textBoxOutput.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            this.textBoxOutput.Location = new System.Drawing.Point(12, 340);
+            this.textBoxOutput.Location = new System.Drawing.Point(12, 410);
             this.textBoxOutput.Multiline = true;
             this.textBoxOutput.Name = "textBoxOutput";
             this.textBoxOutput.ReadOnly = true;
             this.textBoxOutput.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.textBoxOutput.Size = new System.Drawing.Size(760, 200);
-            this.textBoxOutput.TabIndex = 4;
+            this.textBoxOutput.Size = new System.Drawing.Size(760, 140);
+            this.textBoxOutput.TabIndex = 2;
             //
             // MainForm
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(784, 561);
-            this.Controls.Add(this.textBoxOutput);
+            this.Controls.Add(this.tabControl);
             this.Controls.Add(this.labelOutput);
-            this.Controls.Add(this.groupBoxKeyGeneration);
-            this.Controls.Add(this.groupBoxCertificates);
-            this.Controls.Add(this.groupBoxCardInfo);
+            this.Controls.Add(this.textBoxOutput);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.MaximizeBox = false;
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "OpenMFA - PIV Smart Card Manager";
+            this.tabControl.ResumeLayout(false);
+            this.tabPagePIV.ResumeLayout(false);
+            this.tabPageMyEID.ResumeLayout(false);
             this.groupBoxCardInfo.ResumeLayout(false);
             this.groupBoxCertificates.ResumeLayout(false);
             this.groupBoxCertificates.PerformLayout();
@@ -261,6 +310,10 @@ namespace OpenMFA.GUI
 
         #endregion
 
+        private System.Windows.Forms.TabControl tabControl;
+        private System.Windows.Forms.TabPage tabPagePIV;
+        private System.Windows.Forms.TabPage tabPageMyEID;
+        private MyEidTab myEidTab;
         private System.Windows.Forms.GroupBox groupBoxCardInfo;
         private System.Windows.Forms.Button btnDetect;
         private System.Windows.Forms.Button btnInfo;
