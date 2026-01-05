@@ -61,6 +61,40 @@ public class MyEidOperations
     }
 
     /// <summary>
+    /// Erase the card completely, removing all data and returning to factory state
+    /// WARNING: This is irreversible! All keys, certificates, and data will be lost.
+    /// Optionally provide SO-PIN if card is already initialized, or use --no-so-pin for blank cards
+    /// </summary>
+    public async Task<bool> EraseCardAsync(string? soPin = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var args = "--erase-card";
+
+            if (_readerNumber.HasValue)
+                args += $" --reader {_readerNumber}";
+
+            // If SO-PIN provided, use it for authentication
+            if (!string.IsNullOrEmpty(soPin))
+            {
+                args += $" --so-pin {soPin}";
+            }
+            else
+            {
+                // For blank/corrupted cards or when SO-PIN is unknown
+                args += " --no-so-pin";
+            }
+
+            await RunPkcs15InitAsync(args, ct);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Finalize card initialization (locks certain operations)
     /// </summary>
     public async Task FinalizeCardAsync(CancellationToken ct = default)

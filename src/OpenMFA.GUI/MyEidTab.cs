@@ -22,8 +22,11 @@ public partial class MyEidTab : UserControl
     private TextBox txtSoPin;
     private Label lblSoPuk;
     private TextBox txtSoPuk;
+    private Label lblErasePin;
+    private TextBox txtErasePin;
     private Button btnInitialize;
     private Button btnFinalize;
+    private Button btnErase;
 
     private GroupBox grpKeyGen;
     private Label lblKeyType;
@@ -71,7 +74,7 @@ public partial class MyEidTab : UserControl
         // Initialize Card Group
         grpInitialize = new GroupBox
         {
-            Text = "Card Initialization",
+            Text = "Card Initialization & Erasure",
             Location = new System.Drawing.Point(10, 10),
             Size = new System.Drawing.Size(740, 140)
         };
@@ -87,6 +90,9 @@ public partial class MyEidTab : UserControl
 
         lblSoPuk = new Label { Text = "SO PUK:", Location = new System.Drawing.Point(250, 55), AutoSize = true };
         txtSoPuk = new TextBox { Location = new System.Drawing.Point(340, 52), Size = new System.Drawing.Size(100, 23), Text = "12345678" };
+
+        lblErasePin = new Label { Text = "Erase SO-PIN:", Location = new System.Drawing.Point(470, 25), AutoSize = true };
+        txtErasePin = new TextBox { Location = new System.Drawing.Point(565, 22), Size = new System.Drawing.Size(100, 23), Text = "12345678", PasswordChar = '*' };
 
         btnInitialize = new Button
         {
@@ -104,11 +110,23 @@ public partial class MyEidTab : UserControl
         };
         btnFinalize.Click += BtnFinalize_Click;
 
+        btnErase = new Button
+        {
+            Text = "ERASE Card",
+            Location = new System.Drawing.Point(330, 95),
+            Size = new System.Drawing.Size(150, 30),
+            BackColor = System.Drawing.Color.DarkRed,
+            ForeColor = System.Drawing.Color.White,
+            FlatStyle = FlatStyle.Flat
+        };
+        btnErase.Click += BtnErase_Click;
+
         grpInitialize.Controls.AddRange(new Control[]
         {
             lblUserPin, txtUserPin, lblUserPuk, txtUserPuk,
             lblSoPin, txtSoPin, lblSoPuk, txtSoPuk,
-            btnInitialize, btnFinalize
+            lblErasePin, txtErasePin,
+            btnInitialize, btnFinalize, btnErase
         });
 
         // Key Generation Group
@@ -463,6 +481,101 @@ public partial class MyEidTab : UserControl
         catch (Exception ex)
         {
             AppendOutput($"ERROR: {ex.Message}");
+        }
+    }
+
+    private async void BtnErase_Click(object? sender, EventArgs e)
+    {
+        if (_myeid == null)
+        {
+            MessageBox.Show("Please detect card first", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        var result = MessageBox.Show(
+            "⚠️ CRITICAL WARNING ⚠️\n\n" +
+            "This will COMPLETELY ERASE the card and return it to FACTORY STATE!\n\n" +
+            "ALL data will be PERMANENTLY DELETED:\n" +
+            "• All private keys\n" +
+            "• All certificates\n" +
+            "• All data objects\n" +
+            "• All PIN configurations\n\n" +
+            "This operation is IRREVERSIBLE!\n\n" +
+            "Are you ABSOLUTELY SURE you want to erase this card?",
+            "⚠️ CONFIRM CARD ERASURE ⚠️",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Warning,
+            MessageBoxDefaultButton.Button2);
+
+        if (result != DialogResult.Yes)
+            return;
+
+        // Double confirmation
+        var secondConfirm = MessageBox.Show(
+            "FINAL CONFIRMATION:\n\n" +
+            "Click YES to PERMANENTLY ERASE the card.\n" +
+            "Click NO to cancel and keep the card as-is.\n\n" +
+            "This is your last chance to cancel!",
+            "Final Confirmation Required",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Stop,
+            MessageBoxDefaultButton.Button2);
+
+        if (secondConfirm != DialogResult.Yes)
+        {
+            AppendOutput("Card erasure cancelled by user.");
+            return;
+        }
+
+        try
+        {
+            btnErase.Enabled = false;
+            AppendOutput("⚠️ ERASING CARD - DO NOT REMOVE CARD! ⚠️");
+
+            // Use the erase PIN if provided, otherwise try without SO-PIN
+            var erasePin = string.IsNullOrWhiteSpace(txtErasePin.Text) ? null : txtErasePin.Text;
+
+            var success = await _myeid.EraseCardAsync(erasePin);
+
+            if (success)
+            {
+                AppendOutput("✓ Card erased successfully!");
+                AppendOutput("Card is now in factory state - ready for initialization.");
+                MessageBox.Show(
+                    "Card has been erased successfully!\n\n" +
+                    "The card is now blank and ready to be initialized with new settings.",
+                    "Erase Complete",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            else
+            {
+                AppendOutput("✗ Card erasure failed.");
+                MessageBox.Show(
+                    "Card erasure failed!\n\n" +
+                    "Possible causes:\n" +
+                    "• Incorrect SO-PIN\n" +
+                    "• Card is already blank\n" +
+                    "• Card communication error\n\n" +
+                    "Check the output log for details.",
+                    "Erase Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendOutput($"ERROR: {ex.Message}");
+            MessageBox.Show(
+                $"An error occurred during card erasure:\n\n{ex.Message}\n\n" +
+                "The card may be in an unknown state. Try again or use OpenSC tools directly.",
+                "Erasure Error",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
+        finally
+        {
+            btnErase.Enabled = true;
         }
     }
 }
