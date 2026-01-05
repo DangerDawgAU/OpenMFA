@@ -52,8 +52,12 @@ public class MyEidOperations
     {
         try
         {
-            // Erase card
-            await RunPkcs15InitAsync($"--erase-card --reader {_readerNumber ?? 0}", ct);
+            // Erase card - use --no-so-pin for cards that may not be initialized
+            var eraseArgs = $"--erase-card --no-so-pin";
+            if (_readerNumber.HasValue)
+                eraseArgs += $" --reader {_readerNumber}";
+
+            await RunPkcs15InitAsync(eraseArgs, ct);
 
             // Create PKCS#15 structure with MyEID profile
             var args = $"--create-pkcs15 --profile myeid --pin {userPin} --puk {userPuk} --so-pin {soPin} --so-puk {soPuk}";
@@ -469,20 +473,42 @@ public class MyEidOperations
         process.OutputDataReceived += (sender, e) =>
         {
             if (e.Data != null)
+            {
                 output.AppendLine(e.Data);
+                // Log output in real-time for debugging
+                _commandLogger?.Invoke($"  > {e.Data}");
+            }
         };
 
         process.ErrorDataReceived += (sender, e) =>
         {
             if (e.Data != null)
+            {
                 error.AppendLine(e.Data);
+                // Log errors in real-time
+                _commandLogger?.Invoke($"  ! {e.Data}");
+            }
         };
 
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await process.WaitForExitAsync(ct);
+        // Add timeout handling (2 minutes default)
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+
+        try
+        {
+            await process.WaitForExitAsync(linkedCts.Token);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+        {
+            // Timeout occurred
+            _commandLogger?.Invoke($"  ✗ Command timed out after 2 minutes");
+            try { process.Kill(); } catch { }
+            throw new OpenScException($"OpenSC command timed out after 2 minutes");
+        }
 
         // Log command completion
         if (process.ExitCode == 0)
