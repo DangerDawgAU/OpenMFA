@@ -52,12 +52,28 @@ public class MyEidOperations
     {
         try
         {
-            // Erase card - use --no-so-pin for cards that may not be initialized
+            // Try erasing card without SO-PIN first (for uninitialized cards)
             var eraseArgs = $"--erase-card --no-so-pin";
             if (_readerNumber.HasValue)
                 eraseArgs += $" --reader {_readerNumber}";
 
-            await RunPkcs15InitAsync(eraseArgs, ct);
+            try
+            {
+                await RunPkcs15InitAsync(eraseArgs, ct);
+            }
+            catch (OpenScException ex) when (ex.Message.Contains("Authentication") ||
+                                              ex.Message.Contains("security") ||
+                                              ex.Message.Contains("PIN"))
+            {
+                // Card is already initialized and requires SO-PIN for erasure
+                _commandLogger?.Invoke("  ! Card requires SO-PIN for erasure, retrying with SO-PIN...");
+
+                var eraseArgsWithPin = $"--erase-card --so-pin {soPin}";
+                if (_readerNumber.HasValue)
+                    eraseArgsWithPin += $" --reader {_readerNumber}";
+
+                await RunPkcs15InitAsync(eraseArgsWithPin, ct);
+            }
 
             // Create PKCS#15 structure with MyEID profile
             var args = $"--create-pkcs15 --profile myeid --pin {userPin} --puk {userPuk} --so-pin {soPin} --so-puk {soPuk}";
