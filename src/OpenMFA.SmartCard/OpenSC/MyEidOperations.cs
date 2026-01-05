@@ -19,6 +19,7 @@ public class MyEidOperations
     private readonly string _pkcs15ToolPath;
     private readonly string _openscToolPath;
     private readonly uint? _readerNumber;
+    private Action<string>? _commandLogger;
 
     public MyEidOperations(uint? readerNumber = null)
     {
@@ -26,6 +27,14 @@ public class MyEidOperations
         _pkcs15ToolPath = FindTool("pkcs15-tool");
         _openscToolPath = FindTool("opensc-tool");
         _readerNumber = readerNumber;
+    }
+
+    /// <summary>
+    /// Set a callback to log commands as they are executed
+    /// </summary>
+    public void SetCommandLogger(Action<string> logger)
+    {
+        _commandLogger = logger;
     }
 
     #region Card Initialization
@@ -441,6 +450,11 @@ public class MyEidOperations
 
     private async Task<string> RunCommandAsync(string command, string arguments, CancellationToken ct)
     {
+        // Log the command being executed (mask PIN values for security)
+        var commandName = Path.GetFileNameWithoutExtension(command);
+        var maskedArgs = MaskSensitiveData(arguments);
+        _commandLogger?.Invoke($"$ {commandName} {maskedArgs}");
+
         using var process = new Process();
         process.StartInfo.FileName = command;
         process.StartInfo.Arguments = arguments;
@@ -502,6 +516,23 @@ public class MyEidOperations
         }
 
         return toolName; // On Linux/macOS, assume in PATH
+    }
+
+    /// <summary>
+    /// Mask sensitive data (PINs, PUKs) in command arguments for logging
+    /// </summary>
+    private string MaskSensitiveData(string arguments)
+    {
+        var result = arguments;
+
+        // Mask PIN values (--pin, --so-pin, --puk, --so-puk)
+        result = System.Text.RegularExpressions.Regex.Replace(
+            result,
+            @"(--(so-)?pin|--((so-)?puk))\s+\S+",
+            "$1 ****",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return result;
     }
 
     #endregion

@@ -59,6 +59,7 @@ namespace OpenMFA.GUI
             //
             // tabControl
             //
+            this.tabControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.tabControl.Controls.Add(this.tabPagePIV);
             this.tabControl.Controls.Add(this.tabPageMyEID);
             this.tabControl.Location = new System.Drawing.Point(12, 12);
@@ -265,6 +266,7 @@ namespace OpenMFA.GUI
             //
             // labelOutput
             //
+            this.labelOutput.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.labelOutput.AutoSize = true;
             this.labelOutput.Location = new System.Drawing.Point(12, 390);
             this.labelOutput.Name = "labelOutput";
@@ -274,6 +276,7 @@ namespace OpenMFA.GUI
             //
             // textBoxOutput
             //
+            this.textBoxOutput.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right)));
             this.textBoxOutput.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.textBoxOutput.Location = new System.Drawing.Point(12, 410);
             this.textBoxOutput.Multiline = true;
@@ -291,8 +294,9 @@ namespace OpenMFA.GUI
             this.Controls.Add(this.tabControl);
             this.Controls.Add(this.labelOutput);
             this.Controls.Add(this.textBoxOutput);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Sizable;
+            this.MaximizeBox = true;
+            this.MinimumSize = new System.Drawing.Size(800, 600);
             this.Name = "MainForm";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "OpenMFA - PIV Smart Card Manager";

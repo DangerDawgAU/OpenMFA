@@ -11,6 +11,7 @@ public partial class MyEidTab : UserControl
 {
     private MyEidOperations? _myeid;
     private uint? _readerNumber;
+    private Action<string>? _outputHandler;
 
     // Controls
     private GroupBox grpInitialize;
@@ -51,18 +52,27 @@ public partial class MyEidTab : UserControl
     private Button btnDeleteCert;
     private Button btnListAll;
 
-    private TextBox txtOutput;
-
     public MyEidTab()
     {
         InitializeComponents();
         SetDefaultValues();
     }
 
+    public void SetOutputHandler(Action<string> outputHandler)
+    {
+        _outputHandler = outputHandler;
+    }
+
     public void SetReader(uint? readerNumber)
     {
         _readerNumber = readerNumber;
         _myeid = new MyEidOperations(readerNumber);
+
+        // Set up command logging to output window
+        if (_myeid != null && _outputHandler != null)
+        {
+            _myeid.SetCommandLogger(_outputHandler);
+        }
     }
 
     private void InitializeComponents()
@@ -231,21 +241,10 @@ public partial class MyEidTab : UserControl
             btnDeleteCert, btnListAll
         });
 
-        // Output TextBox
-        txtOutput = new TextBox
-        {
-            Location = new System.Drawing.Point(10, 400),
-            Size = new System.Drawing.Size(740, 90),
-            Multiline = true,
-            ScrollBars = ScrollBars.Vertical,
-            ReadOnly = true,
-            Font = new System.Drawing.Font("Consolas", 9)
-        };
-
         // Add all controls to tab
         this.Controls.AddRange(new Control[]
         {
-            grpInitialize, grpKeyGen, grpCertOps, txtOutput
+            grpInitialize, grpKeyGen, grpCertOps
         });
     }
 
@@ -256,16 +255,7 @@ public partial class MyEidTab : UserControl
 
     private void AppendOutput(string message)
     {
-        if (txtOutput.InvokeRequired)
-        {
-            txtOutput.Invoke(new Action<string>(AppendOutput), message);
-        }
-        else
-        {
-            txtOutput.AppendText($"[{DateTime.Now:HH:mm:ss}] {message}{Environment.NewLine}");
-            txtOutput.SelectionStart = txtOutput.Text.Length;
-            txtOutput.ScrollToCaret();
-        }
+        _outputHandler?.Invoke(message);
     }
 
     private async void BtnInitialize_Click(object? sender, EventArgs e)

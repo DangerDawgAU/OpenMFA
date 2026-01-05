@@ -19,6 +19,9 @@ namespace OpenMFA.GUI
             InitializeComponent();
             InitializeComboBoxes();
 
+            // Set up MyEID tab to use shared output window
+            myEidTab.SetOutputHandler(AppendOutput);
+
             // Wire up tab change event to update MyEID tab when switched
             tabControl.SelectedIndexChanged += TabControl_SelectedIndexChanged;
         }
@@ -99,6 +102,7 @@ namespace OpenMFA.GUI
             try
             {
                 _context = new OpenScContext();
+                _context.SetCommandLogger(AppendOutput);
 
                 // List readers
                 AppendOutput("\n--- Card Readers ---");
@@ -156,6 +160,7 @@ namespace OpenMFA.GUI
                 if (_context == null)
                 {
                     _context = new OpenScContext();
+                    _context.SetCommandLogger(AppendOutput);
                 }
 
                 var slot = await _context.GetFirstSlotWithTokenAsync();
@@ -191,7 +196,7 @@ namespace OpenMFA.GUI
                     return;
                 }
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value, AppendOutput);
 
                 AppendOutput("\n--- Certificates on Card ---");
                 var slots = new[]
@@ -256,7 +261,7 @@ namespace OpenMFA.GUI
 
                 if (saveDialog.ShowDialog() == DialogResult.OK)
                 {
-                    using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
+                    using var pivCard = new PivCardOpenSc(_currentSlotId.Value, AppendOutput);
                     var certData = await pivCard.GetCertificateAsync(slot);
 
                     if (certData == null || certData.Length == 0)
@@ -311,7 +316,7 @@ namespace OpenMFA.GUI
                 var certData = await File.ReadAllBytesAsync(openDialog.FileName);
                 AppendOutput($"Certificate file size: {certData.Length} bytes");
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value, AppendOutput);
                 await pivCard.PutCertificateAsync(slot, certData);
 
                 AppendOutput($"\nCertificate written successfully to slot {slot:X}.");
@@ -354,7 +359,7 @@ namespace OpenMFA.GUI
                     return;
                 }
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value, AppendOutput);
                 await pivCard.DeleteCertificateAsync(slot);
 
                 AppendOutput($"\nCertificate deleted successfully from slot {slot:X}.");
@@ -399,7 +404,7 @@ namespace OpenMFA.GUI
                     return;
                 }
 
-                using var pivCard = new PivCardOpenSc(_currentSlotId.Value);
+                using var pivCard = new PivCardOpenSc(_currentSlotId.Value, AppendOutput);
                 var publicKey = await pivCard.GenerateKeyPairAsync(slot, algorithm);
 
                 if (publicKey != null && publicKey.Length > 0)

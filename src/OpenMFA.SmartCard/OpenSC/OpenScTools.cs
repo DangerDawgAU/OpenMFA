@@ -13,6 +13,7 @@ public class OpenScTools
     private readonly string _pkcs15ToolPath;
     private readonly string _pkcs15InitPath;
     private readonly string _openscToolPath;
+    private Action<string>? _commandLogger;
 
     public OpenScTools()
     {
@@ -20,6 +21,14 @@ public class OpenScTools
         _pkcs15ToolPath = FindTool("pkcs15-tool");
         _pkcs15InitPath = FindTool("pkcs15-init");
         _openscToolPath = FindTool("opensc-tool");
+    }
+
+    /// <summary>
+    /// Set a callback to log commands as they are executed
+    /// </summary>
+    public void SetCommandLogger(Action<string> logger)
+    {
+        _commandLogger = logger;
     }
 
     /// <summary>
@@ -351,6 +360,11 @@ public class OpenScTools
 
     private async Task<string> RunCommandAsync(string command, string arguments, CancellationToken ct)
     {
+        // Log the command being executed (mask PIN values for security)
+        var commandName = Path.GetFileNameWithoutExtension(command);
+        var maskedArgs = MaskSensitiveData(arguments);
+        _commandLogger?.Invoke($"$ {commandName} {maskedArgs}");
+
         using var process = new Process();
         process.StartInfo.FileName = command;
         process.StartInfo.Arguments = arguments;
@@ -413,6 +427,23 @@ public class OpenScTools
         }
 
         return toolName; // On Linux/macOS, assume in PATH
+    }
+
+    /// <summary>
+    /// Mask sensitive data (PINs, PUKs) in command arguments for logging
+    /// </summary>
+    private string MaskSensitiveData(string arguments)
+    {
+        var result = arguments;
+
+        // Mask PIN values (--pin, --so-pin, --puk, --so-puk)
+        result = System.Text.RegularExpressions.Regex.Replace(
+            result,
+            @"(--(so-)?pin|--((so-)?puk))\s+\S+",
+            "$1 ****",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return result;
     }
 }
 

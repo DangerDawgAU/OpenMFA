@@ -14,10 +14,15 @@ public class PivCardOpenSc : IPivCard
     private string? _pin;
     private bool _disposed;
 
-    public PivCardOpenSc(uint? slotId = null)
+    public PivCardOpenSc(uint? slotId = null, Action<string>? commandLogger = null)
     {
         _openSc = new OpenScTools();
         _slotId = slotId;
+
+        if (commandLogger != null)
+        {
+            _openSc.SetCommandLogger(commandLogger);
+        }
     }
 
     public Task<bool> SelectPivAppletAsync(CancellationToken cancellationToken = default)

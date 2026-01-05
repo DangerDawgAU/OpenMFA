@@ -14,6 +14,14 @@ public class OpenScContext : IDisposable
     }
 
     /// <summary>
+    /// Set a callback to log commands as they are executed
+    /// </summary>
+    public void SetCommandLogger(Action<string> logger)
+    {
+        _tools.SetCommandLogger(logger);
+    }
+
+    /// <summary>
     /// List all available slots with tokens (cards)
     /// </summary>
     public async Task<IReadOnlyList<Pkcs11SlotInfo>> GetSlotsAsync(CancellationToken cancellationToken = default)
