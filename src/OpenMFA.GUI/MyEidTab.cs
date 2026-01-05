@@ -288,7 +288,9 @@ public partial class MyEidTab : UserControl
         try
         {
             btnInitialize.Enabled = false;
-            AppendOutput("Initializing MyEID card...");
+            AppendOutput("=== Card Initialization Started ===");
+            AppendOutput("Erasing card and creating PKCS#15 structure...");
+            Application.DoEvents(); // Force UI update
 
             var success = await _myeid.InitializeCardAsync(
                 txtUserPin.Text,
@@ -297,9 +299,9 @@ public partial class MyEidTab : UserControl
                 txtSoPuk.Text);
 
             if (success)
-                AppendOutput("Card initialized successfully!");
+                AppendOutput("✓ Card initialized successfully!");
             else
-                AppendOutput("Card initialization failed.");
+                AppendOutput("✗ Card initialization failed.");
         }
         catch (Exception ex)
         {
@@ -309,6 +311,7 @@ public partial class MyEidTab : UserControl
         finally
         {
             btnInitialize.Enabled = true;
+            AppendOutput("=== Initialization Complete ===");
         }
     }
 
@@ -318,13 +321,22 @@ public partial class MyEidTab : UserControl
 
         try
         {
-            AppendOutput("Finalizing card...");
+            btnFinalize.Enabled = false;
+            AppendOutput("=== Card Finalization Started ===");
+            AppendOutput("Locking card configuration...");
+            Application.DoEvents(); // Force UI update
+
             await _myeid.FinalizeCardAsync();
-            AppendOutput("Card finalized successfully!");
+            AppendOutput("✓ Card finalized successfully!");
         }
         catch (Exception ex)
         {
             AppendOutput($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            btnFinalize.Enabled = true;
+            AppendOutput("=== Finalization Complete ===");
         }
     }
 
@@ -336,7 +348,11 @@ public partial class MyEidTab : UserControl
         {
             btnGenerateKey.Enabled = false;
             var keyType = cmbKeyType.SelectedItem?.ToString() ?? "RSA 2048";
-            AppendOutput($"Generating {keyType} key pair (this may take time)...");
+
+            AppendOutput("=== Key Generation Started ===");
+            AppendOutput($"Generating {keyType} key pair...");
+            AppendOutput("⏳ This may take 30-60 seconds for RSA 4096 - please wait...");
+            Application.DoEvents(); // Force UI update
 
             string result;
             if (keyType.StartsWith("RSA"))
@@ -366,7 +382,7 @@ public partial class MyEidTab : UserControl
                     txtKeyPin.Text);
             }
 
-            AppendOutput("Key pair generated successfully!");
+            AppendOutput("✓ Key pair generated successfully!");
         }
         catch (Exception ex)
         {
@@ -375,6 +391,7 @@ public partial class MyEidTab : UserControl
         finally
         {
             btnGenerateKey.Enabled = true;
+            AppendOutput("=== Key Generation Complete ===");
         }
     }
 
@@ -393,17 +410,26 @@ public partial class MyEidTab : UserControl
 
         try
         {
-            AppendOutput($"Storing certificate {Path.GetFileName(openDialog.FileName)}...");
+            btnStoreCert.Enabled = false;
+            AppendOutput("=== Certificate Storage Started ===");
+            AppendOutput($"Storing certificate: {Path.GetFileName(openDialog.FileName)}");
+            Application.DoEvents(); // Force UI update
+
             await _myeid.StoreCertificateAsync(
                 openDialog.FileName,
                 txtCertId.Text,
                 txtCertLabel.Text,
                 txtCertPin.Text);
-            AppendOutput("Certificate stored successfully!");
+            AppendOutput("✓ Certificate stored successfully!");
         }
         catch (Exception ex)
         {
             AppendOutput($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            btnStoreCert.Enabled = true;
+            AppendOutput("=== Certificate Storage Complete ===");
         }
     }
 
@@ -423,22 +449,31 @@ public partial class MyEidTab : UserControl
 
         try
         {
-            AppendOutput($"Reading certificate ID {txtCertId.Text}...");
+            btnReadCert.Enabled = false;
+            AppendOutput("=== Certificate Read Started ===");
+            AppendOutput($"Reading certificate ID: {txtCertId.Text}");
+            Application.DoEvents(); // Force UI update
+
             var certData = await _myeid.ReadCertificateAsync(txtCertId.Text);
 
             if (certData.Length > 0)
             {
                 await File.WriteAllBytesAsync(saveDialog.FileName, certData);
-                AppendOutput($"Certificate saved to {Path.GetFileName(saveDialog.FileName)} ({certData.Length} bytes)");
+                AppendOutput($"✓ Certificate saved to {Path.GetFileName(saveDialog.FileName)} ({certData.Length} bytes)");
             }
             else
             {
-                AppendOutput("No certificate found with that ID");
+                AppendOutput("✗ No certificate found with that ID");
             }
         }
         catch (Exception ex)
         {
             AppendOutput($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            btnReadCert.Enabled = true;
+            AppendOutput("=== Certificate Read Complete ===");
         }
     }
 
@@ -457,13 +492,22 @@ public partial class MyEidTab : UserControl
 
         try
         {
-            AppendOutput($"Deleting certificate ID {txtCertId.Text}...");
+            btnDeleteCert.Enabled = false;
+            AppendOutput("=== Certificate Deletion Started ===");
+            AppendOutput($"Deleting certificate ID: {txtCertId.Text}");
+            Application.DoEvents(); // Force UI update
+
             await _myeid.DeleteCertificateAsync(txtCertId.Text, txtCertPin.Text);
-            AppendOutput("Certificate deleted successfully!");
+            AppendOutput("✓ Certificate deleted successfully!");
         }
         catch (Exception ex)
         {
             AppendOutput($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            btnDeleteCert.Enabled = true;
+            AppendOutput("=== Certificate Deletion Complete ===");
         }
     }
 
@@ -473,7 +517,11 @@ public partial class MyEidTab : UserControl
 
         try
         {
-            AppendOutput("Listing all objects on card...");
+            btnListAll.Enabled = false;
+            AppendOutput("=== Card Object Listing Started ===");
+            AppendOutput("Reading all objects from card...");
+            Application.DoEvents(); // Force UI update
+
             var dump = await _myeid.DumpCardAsync();
             AppendOutput("--- Card Contents ---");
             AppendOutput(dump);
@@ -481,6 +529,11 @@ public partial class MyEidTab : UserControl
         catch (Exception ex)
         {
             AppendOutput($"ERROR: {ex.Message}");
+        }
+        finally
+        {
+            btnListAll.Enabled = true;
+            AppendOutput("=== Listing Complete ===");
         }
     }
 
@@ -530,7 +583,10 @@ public partial class MyEidTab : UserControl
         try
         {
             btnErase.Enabled = false;
+            AppendOutput("=== CARD ERASURE STARTED ===");
             AppendOutput("⚠️ ERASING CARD - DO NOT REMOVE CARD! ⚠️");
+            AppendOutput("Wiping all keys, certificates, and data...");
+            Application.DoEvents(); // Force UI update
 
             // Use the erase PIN if provided, otherwise try without SO-PIN
             var erasePin = string.IsNullOrWhiteSpace(txtErasePin.Text) ? null : txtErasePin.Text;
@@ -576,6 +632,7 @@ public partial class MyEidTab : UserControl
         finally
         {
             btnErase.Enabled = true;
+            AppendOutput("=== ERASURE OPERATION COMPLETE ===");
         }
     }
 }
