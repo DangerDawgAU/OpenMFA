@@ -3,7 +3,9 @@ using OpenMFA.SmartCard.OpenSC;
 namespace OpenMFA.SmartCard.Piv;
 
 /// <summary>
-/// PIV smart card implementation using OpenSC tools
+/// PIV smart card implementation using OpenSC tools.
+/// Supports both native PIV cards (e.g., YubiKey) and PKCS#15 cards with PIV emulation (e.g., MyEID 4.5).
+/// The implementation automatically tries PKCS#15 operations first, falling back to PKCS#11 for compatibility.
 /// </summary>
 public class PivCardOpenSc : IPivCard
 {
@@ -49,7 +51,18 @@ public class PivCardOpenSc : IPivCard
     public async Task DeleteCertificateAsync(PivSlot slot, CancellationToken cancellationToken = default)
     {
         var objectId = PivDataObject.GetOpenScObjectId(slot);
-        await _openSc.DeleteObjectAsync(objectId, "cert", _slotId, _pin, cancellationToken);
+        try
+        {
+            await _openSc.DeleteObjectAsync(objectId, "cert", _slotId, _pin, cancellationToken);
+        }
+        catch (OpenScException ex) when (ex.Message.Contains("CKR_FUNCTION_NOT_SUPPORTED"))
+        {
+            throw new NotSupportedException(
+                "Certificate deletion is not supported by this card. " +
+                "PIV cards (including YubiKeys) typically require overwriting the certificate slot with a new certificate rather than deleting. " +
+                "To remove a certificate, write a new certificate to the same slot or use the card manufacturer's management tool.",
+                ex);
+        }
     }
 
     public async Task<byte[]> GenerateKeyPairAsync(PivSlot slot, PivAlgorithm algorithm, CancellationToken cancellationToken = default)

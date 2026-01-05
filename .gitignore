@@ -4,7 +4,6 @@ obj/
 *.user
 *.suo
 *.cache
-*.log
 
 # Build results
 [Dd]ebug/
@@ -42,6 +41,7 @@ ca/
 *.key
 *.pem
 *.pfx
+*.crt
 
 # Database
 data/
@@ -57,3 +57,26 @@ dotnet-install.sh
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Test certificates
+test_cert.der
+cert_*.der
+cert_*.crt
+
+# NuGet packages
+*.nupkg
+*.snupkg
+packages/
+
+# Tool manifest
+.config/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~

@@ -11,12 +11,14 @@ public class OpenScTools
 {
     private readonly string _pkcs11ToolPath;
     private readonly string _pkcs15ToolPath;
+    private readonly string _pkcs15InitPath;
     private readonly string _openscToolPath;
 
     public OpenScTools()
     {
         _pkcs11ToolPath = FindTool("pkcs11-tool");
         _pkcs15ToolPath = FindTool("pkcs15-tool");
+        _pkcs15InitPath = FindTool("pkcs15-init");
         _openscToolPath = FindTool("opensc-tool");
     }
 
@@ -75,11 +77,11 @@ public class OpenScTools
                 {
                     var parts = trimmed.Split(':');
                     if (parts.Length > 1)
+                    {
                         currentSlot.TokenLabel = parts[1].Trim();
-                }
-                else if (trimmed.Contains("token present"))
-                {
-                    currentSlot.TokenPresent = trimmed.Contains("yes");
+                        // If we have a token label, a token is present
+                        currentSlot.TokenPresent = !string.IsNullOrWhiteSpace(currentSlot.TokenLabel);
+                    }
                 }
             }
         }
@@ -209,10 +211,22 @@ public class OpenScTools
     }
 
     /// <summary>
-    /// Delete an object from the card
+    /// Delete an object from the card (tries pkcs15-init first for PKCS#15 cards like MyEID, falls back to pkcs11-tool)
     /// </summary>
     public async Task DeleteObjectAsync(string objectId, string type = "cert", uint? slotId = null, string? pin = null, CancellationToken ct = default)
     {
+        // Try pkcs15-init first (for MyEID and other PKCS#15 cards)
+        try
+        {
+            await DeleteObjectPkcs15Async(objectId, type, slotId, pin, ct);
+            return;
+        }
+        catch (OpenScException ex) when (ex.Message.Contains("not supported") || ex.Message.Contains("not found"))
+        {
+            // Fall through to try pkcs11-tool
+        }
+
+        // Fallback to pkcs11-tool (for PIV cards like YubiKey)
         var args = new List<string>
         {
             "--delete-object",
@@ -230,10 +244,41 @@ public class OpenScTools
     }
 
     /// <summary>
-    /// Generate a key pair on the card
+    /// Delete object using pkcs15-init (for PKCS#15 cards like MyEID)
+    /// </summary>
+    private async Task DeleteObjectPkcs15Async(string objectId, string type, uint? slotId = null, string? pin = null, CancellationToken ct = default)
+    {
+        var args = new List<string>
+        {
+            "--delete-objects", type,
+            "--id", objectId
+        };
+
+        if (slotId.HasValue)
+            args.AddRange(new[] { "--reader", slotId.Value.ToString() });
+
+        if (!string.IsNullOrEmpty(pin))
+            args.AddRange(new[] { "--pin", pin });
+
+        await RunCommandAsync(_pkcs15InitPath, string.Join(" ", args), ct);
+    }
+
+    /// <summary>
+    /// Generate a key pair on the card (tries pkcs15-init first for MyEID, falls back to pkcs11-tool)
     /// </summary>
     public async Task<string> GenerateKeyPairAsync(string objectId, string keyType = "RSA:2048", string? label = null, uint? slotId = null, string? pin = null, CancellationToken ct = default)
     {
+        // Try pkcs15-init first (for MyEID and other PKCS#15 cards)
+        try
+        {
+            return await GenerateKeyPairPkcs15Async(objectId, keyType, label, slotId, pin, ct);
+        }
+        catch (OpenScException ex) when (ex.Message.Contains("not supported") || ex.Message.Contains("not found"))
+        {
+            // Fall through to try pkcs11-tool
+        }
+
+        // Fallback to pkcs11-tool (for PIV cards)
         var args = new List<string>
         {
             "--keypairgen",
@@ -251,6 +296,33 @@ public class OpenScTools
             args.AddRange(new[] { "--login", "--pin", pin });
 
         return await RunCommandAsync(_pkcs11ToolPath, string.Join(" ", args), ct);
+    }
+
+    /// <summary>
+    /// Generate key pair using pkcs15-init (for PKCS#15 cards like MyEID)
+    /// </summary>
+    private async Task<string> GenerateKeyPairPkcs15Async(string objectId, string keyType, string? label = null, uint? slotId = null, string? pin = null, CancellationToken ct = default)
+    {
+        // Convert keyType format from "RSA:2048" to "rsa/2048" for pkcs15-init
+        var keyTypeConverted = keyType.ToLowerInvariant().Replace(":", "/");
+
+        var args = new List<string>
+        {
+            "--generate-key", keyTypeConverted,
+            "--auth-id", objectId,
+            "--id", objectId
+        };
+
+        if (!string.IsNullOrEmpty(label))
+            args.AddRange(new[] { "--label", label });
+
+        if (slotId.HasValue)
+            args.AddRange(new[] { "--reader", slotId.Value.ToString() });
+
+        if (!string.IsNullOrEmpty(pin))
+            args.AddRange(new[] { "--pin", pin });
+
+        return await RunCommandAsync(_pkcs15InitPath, string.Join(" ", args), ct);
     }
 
     private async Task<string> RunCommandAsync(string command, string arguments, CancellationToken ct)

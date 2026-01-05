@@ -2,81 +2,92 @@
 
 ## Project Overview
 
-Self-enrollment client for PIV smart cards using Aventura PIV 4.5 cards and OpenSC. Designed for air-gapped, isolated environments with simple standalone operation.
+Self-enrollment client for PIV smart cards using MyEID 4.5 PKI cards and OpenSC. Designed for air-gapped, isolated environments with simple standalone operation.
+
+Supports both native PIV cards and PKCS#15 cards with PIV emulation.
 
 ## Technical Stack
 
-- **Smart Cards**: Aventura PIV 4.5
-- **Interface**: OpenSC + PKCS#11
-- **Application**: Python CLI tool
-- **CA**: Local filesystem-based CA (OpenSSL)
-- **Database**: SQLite (local file)
+- **Smart Cards**: MyEID 4.5 PKI Card (Aventra)
+  - PKCS#15 compliant with PIV emulation
+  - RSA keys up to 4096 bits
+  - ECC keys (P-256, P-384, P-521)
+  - 144KB EEPROM storage
+- **Interface**: OpenSC (pkcs15-init, pkcs11-tool, piv-tool)
+- **Application**: .NET 9.0 (Windows Forms GUI + CLI)
+- **Platform**: Windows (with OpenSC installed)
 
 ## Repository Structure
 
 ```
 OpenMFA/
 ├── src/
-│   ├── card.py              # OpenSC/PKCS#11 operations
-│   ├── enrollment.py        # Enrollment workflow
-│   ├── ca.py                # Simple file-based CA
-│   └── cli.py               # Command-line interface
-├── scripts/
-│   ├── setup.sh             # Install OpenSC and dependencies
-│   ├── init-ca.sh           # Initialize CA structure
-│   └── reset-card.sh        # Reset/reinitialize card
-├── config/
-│   ├── opensc.conf          # OpenSC configuration
-│   └── settings.yaml        # Application settings
-├── ca/                      # CA directory (created at init)
-│   ├── ca-cert.pem
-│   ├── ca-key.pem
-│   ├── issued/              # Issued certificates
-│   └── index.txt            # Certificate index
-├── data/
-│   └── enrollments.db       # SQLite database
-├── requirements.txt
+│   ├── OpenMFA.SmartCard/   # Core smart card operations library
+│   │   ├── OpenSC/          # OpenSC command-line tool wrappers
+│   │   │   ├── OpenScContext.cs
+│   │   │   └── OpenScTools.cs
+│   │   └── Piv/             # PIV card implementations
+│   │       ├── IPivCard.cs
+│   │       ├── PivCardOpenSc.cs
+│   │       └── PivSlot.cs
+│   ├── OpenMFA.GUI/         # Windows Forms GUI application
+│   │   ├── MainForm.cs
+│   │   ├── MainForm.Designer.cs
+│   │   └── Program.cs
+│   └── OpenMFA.CLI/         # Command-line interface
+│       └── Program.cs
+├── run.cmd                  # Windows launcher script
+├── run.ps1                  # PowerShell launcher script
+├── .gitignore
 ├── README.md
-└── claude.md
+└── CLAUDE.md                # This file
 ```
 
 ## Core Components
 
-### 1. Card Operations (card.py)
-- Detect card reader and PIV card
-- Initialize PIV applet
-- Generate RSA 2048 key pair on-card (slot 9A)
-- Extract public key
-- Write certificate to card
+### 1. OpenScTools (OpenScTools.cs)
+Wrapper around OpenSC command-line tools with intelligent fallback:
+- **pkcs15-init**: For PKCS#15 cards (MyEID) - tried first
+- **pkcs11-tool**: For PIV cards (YubiKey) - fallback
+- **opensc-tool**: For card detection
+- Automatic tool path detection on Windows
 
-### 2. Enrollment Workflow (enrollment.py)
-1. Detect card and reader
-2. Set user PIN (6-8 digits)
-3. Generate key pair on card
-4. Create CSR with user DN
-5. Sign certificate with local CA
-6. Write certificate to card
-7. Log enrollment to SQLite
+### 2. PivCardOpenSc (PivCardOpenSc.cs)
+Implements IPivCard interface for OpenSC-based operations:
+- Certificate reading/writing
+- Key pair generation (RSA 1024-4096, ECC P-256/P-384)
+- Certificate deletion (PKCS#15 cards only)
+- PIN verification
+- Supports both PIV and PKCS#15 card types
 
-### 3. Simple CA (ca.py)
-- File-based CA using OpenSSL
-- Issue certificates from CSR
-- Track issued certificates in index
-- No revocation (air-gapped environment)
+### 3. GUI Application (MainForm.cs)
+Windows Forms interface providing:
+- Card detection and slot enumeration
+- Certificate management (read, write, delete, list)
+- On-card key pair generation
+- Session logging with timestamps
+- Visual feedback for all operations
 
-### 4. CLI Interface (cli.py)
+### 4. CLI Application (Program.cs)
+Command-line interface for automation:
 ```bash
-# Initialize CA
-openmfa init-ca
+# Detect cards and readers
+dotnet run --project src/OpenMFA.CLI detect
 
-# Enroll new card
-openmfa enroll --cn "John Doe" --email "john@example.com"
+# List certificates on card
+dotnet run --project src/OpenMFA.CLI list
 
-# List enrolled cards
-openmfa list
+# Read certificate from slot 9A
+dotnet run --project src/OpenMFA.CLI read 9A cert.der
 
-# Reset card
-openmfa reset-card
+# Write certificate to slot 9A
+dotnet run --project src/OpenMFA.CLI write 9A cert.der
+
+# Generate 2048-bit RSA key in slot 9A
+dotnet run --project src/OpenMFA.CLI generate-key 9A RSA2048
+
+# Delete certificate from slot 9A
+dotnet run --project src/OpenMFA.CLI delete 9A
 ```
 
 ## Enrollment Process

@@ -72,10 +72,17 @@ namespace OpenMFA.GUI
             textBoxOutput.Clear();
         }
 
+        private void AddSeparator()
+        {
+            AppendOutput("");
+            AppendOutput("----------------------------------------");
+            AppendOutput("");
+        }
+
         private async void BtnDetect_Click(object sender, EventArgs e)
         {
-            ClearOutput();
-            AppendOutput("Detecting card readers and smart cards...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Detecting card readers and smart cards...");
 
             try
             {
@@ -126,8 +133,8 @@ namespace OpenMFA.GUI
 
         private async void BtnInfo_Click(object sender, EventArgs e)
         {
-            ClearOutput();
-            AppendOutput("Retrieving card information...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Retrieving card information...");
 
             try
             {
@@ -158,8 +165,8 @@ namespace OpenMFA.GUI
 
         private async void BtnList_Click(object sender, EventArgs e)
         {
-            ClearOutput();
-            AppendOutput("Listing certificates on card...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Listing certificates on card...");
 
             try
             {
@@ -214,8 +221,8 @@ namespace OpenMFA.GUI
 
             var slot = (PivSlot)comboBoxSlot.SelectedValue;
 
-            ClearOutput();
-            AppendOutput($"Reading certificate from slot {slot:X}...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Reading certificate from slot {slot:X}...");
 
             try
             {
@@ -275,8 +282,8 @@ namespace OpenMFA.GUI
                 return;
             }
 
-            ClearOutput();
-            AppendOutput($"Writing certificate to slot {slot:X}...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Writing certificate to slot {slot:X}...");
 
             try
             {
@@ -321,8 +328,8 @@ namespace OpenMFA.GUI
                 return;
             }
 
-            ClearOutput();
-            AppendOutput($"Deleting certificate from slot {slot:X}...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Deleting certificate from slot {slot:X}...");
 
             try
             {
@@ -365,8 +372,8 @@ namespace OpenMFA.GUI
                 return;
             }
 
-            ClearOutput();
-            AppendOutput($"Generating {algorithm} key pair in slot {slot:X}...");
+            AddSeparator();
+            AppendOutput($"[{DateTime.Now:HH:mm:ss}] Generating {algorithm} key pair in slot {slot:X}...");
             AppendOutput("This may take a few moments, please wait...");
 
             try
