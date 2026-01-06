@@ -88,11 +88,30 @@ public class MyEidCard : IDisposable
         string pin = "1111",
         CancellationToken ct = default)
     {
+        // Check if data is already PEM formatted
+        var text = System.Text.Encoding.ASCII.GetString(certificateData);
+        string pemCert;
+
+        if (text.Contains("-----BEGIN"))
+        {
+            // Already PEM format - normalize the headers
+            // certreq uses "BEGIN NEW CERTIFICATE REQUEST" which OpenSC doesn't understand
+            // Replace with standard "BEGIN CERTIFICATE" header
+            pemCert = text
+                .Replace("-----BEGIN NEW CERTIFICATE REQUEST-----", "-----BEGIN CERTIFICATE-----")
+                .Replace("-----END NEW CERTIFICATE REQUEST-----", "-----END CERTIFICATE-----");
+        }
+        else
+        {
+            // DER format - convert to PEM
+            pemCert = ConvertDerToPem(certificateData);
+        }
+
         // Write to temporary file (OpenSC tools require file input)
         var tempFile = Path.GetTempFileName();
         try
         {
-            await File.WriteAllBytesAsync(tempFile, certificateData, ct);
+            await File.WriteAllTextAsync(tempFile, pemCert, ct);
             var args = $"--store-certificate \"{tempFile}\" --id 01 --label \"User Certificate\" --pin {pin}";
             await RunCommandAsync(_pkcs15InitPath, BuildArgs(args), ct);
         }
@@ -101,6 +120,126 @@ public class MyEidCard : IDisposable
             if (File.Exists(tempFile))
                 File.Delete(tempFile);
         }
+    }
+
+    /// <summary>
+    /// Generate a Certificate Signing Request (CSR) from the key on the card.
+    /// The CSR includes the UPN in Subject Alternative Name for Windows smart card logon.
+    /// Uses Windows certreq to create CSR from existing smart card key.
+    /// </summary>
+    public async Task GenerateCSRAsync(
+        string commonName,
+        string upn,
+        string outputPath,
+        CancellationToken ct = default)
+    {
+        // Use Windows certreq which can interact with smart card provider
+        // to sign the CSR using the on-card private key
+        var infFile = Path.GetTempFileName();
+
+        try
+        {
+            // Create certreq INF with UPN in Subject Alternative Name
+            var infContent = $@"[Version]
+Signature=""$Windows NT$""
+
+[NewRequest]
+Subject=""CN={commonName}""
+KeyLength=2048
+Exportable=FALSE
+MachineKeySet=FALSE
+ProviderName=""Microsoft Base Smart Card Crypto Provider""
+ProviderType=1
+RequestType=PKCS10
+KeyUsage=0xa0
+
+[EnhancedKeyUsageExtension]
+OID=1.3.6.1.5.5.7.3.2
+OID=1.3.6.1.4.1.311.20.2.2
+
+[Extensions]
+2.5.29.17 = ""{{text}}""
+_continue_ = ""upn={upn}&""
+";
+
+            await File.WriteAllTextAsync(infFile, infContent, ct);
+
+            _logger?.Invoke("Generating CSR using Windows certreq...");
+            _logger?.Invoke("You will be prompted to select the smart card and enter PIN");
+
+            // Run certreq with visible window so user can interact with PIN dialog
+            var psi = new ProcessStartInfo
+            {
+                FileName = "certreq.exe",
+                Arguments = $"-new \"{infFile}\" \"{outputPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = false, // Show window for PIN prompt
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            _logger?.Invoke($"$ certreq -new \"{infFile}\" \"{outputPath}\"");
+
+            using var process = Process.Start(psi);
+            if (process == null)
+                throw new InvalidOperationException("Failed to start certreq");
+
+            var output = new StringBuilder();
+            var error = new StringBuilder();
+
+            process.OutputDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    output.AppendLine(e.Data);
+                    _logger?.Invoke($"  > {e.Data}");
+                }
+            };
+
+            process.ErrorDataReceived += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    error.AppendLine(e.Data);
+                    _logger?.Invoke($"  ! {e.Data}");
+                }
+            };
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            await process.WaitForExitAsync(ct);
+
+            if (process.ExitCode != 0 || !File.Exists(outputPath))
+            {
+                var errorMsg = error.Length > 0 ? error.ToString() : output.ToString();
+                throw new InvalidOperationException($"certreq failed with exit code {process.ExitCode}: {errorMsg}");
+            }
+
+            _logger?.Invoke($"  ✓ CSR generated successfully");
+        }
+        finally
+        {
+            if (File.Exists(infFile))
+                File.Delete(infFile);
+        }
+    }
+
+    private string ConvertDerToPem(byte[] derData)
+    {
+        var base64 = Convert.ToBase64String(derData);
+        var sb = new StringBuilder();
+        sb.AppendLine("-----BEGIN CERTIFICATE-----");
+
+        // Split base64 into 64-character lines
+        for (int i = 0; i < base64.Length; i += 64)
+        {
+            int length = Math.Min(64, base64.Length - i);
+            sb.AppendLine(base64.Substring(i, length));
+        }
+
+        sb.AppendLine("-----END CERTIFICATE-----");
+        return sb.ToString();
     }
 
     /// <summary>
@@ -153,15 +292,16 @@ public class MyEidCard : IDisposable
 
         if (string.IsNullOrEmpty(soPin))
         {
+            // Blank/uninitialized cards - no SO-PIN needed
             args += " --no-so-pin";
-            await RunCommandAsync(_pkcs15InitPath, BuildArgs(args), ct);
         }
         else
         {
-            // For initialized cards, auto-respond to SO-PIN prompts
+            // Initialized cards - provide SO-PIN via command line
             args += $" --so-pin {soPin}";
-            await RunCommandWithPinAsync(_pkcs15InitPath, BuildArgs(args), soPin, ct);
         }
+
+        await RunCommandAsync(_pkcs15InitPath, BuildArgs(args), ct);
     }
 
     #endregion

@@ -80,3 +80,6 @@ packages/
 *.bak
 *.swp
 *~
+
+# Third-party source code (not for upload)
+NOUPLOAD/

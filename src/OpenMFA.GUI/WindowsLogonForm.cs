@@ -40,6 +40,7 @@ public partial class WindowsLogonForm : Form
     private GroupBox grpCertificate = null!;
     private Label lblCertPin = null!;
     private TextBox txtCertPin = null!;
+    private Button btnGenerateCSR = null!;
     private Button btnImportCert = null!;
     private Button btnExportCert = null!;
     private Button btnVerifyCard = null!;
@@ -53,7 +54,7 @@ public partial class WindowsLogonForm : Form
 
     private void InitializeComponent()
     {
-        this.Text = "MyEID - Windows Smart Card Logon Setup";
+        this.Text = "OpenMFA GUI";
         this.Size = new System.Drawing.Size(900, 700);
         this.FormBorderStyle = FormBorderStyle.Sizable;
         this.StartPosition = FormStartPosition.CenterScreen;
@@ -193,11 +194,20 @@ public partial class WindowsLogonForm : Form
         lblCertPin = new Label { Text = "PIN:", Location = new System.Drawing.Point(10, 30), AutoSize = true };
         txtCertPin = new TextBox { Location = new System.Drawing.Point(50, 27), Size = new System.Drawing.Size(100, 23), Text = "1111" };
 
+        btnGenerateCSR = new Button
+        {
+            Text = "Generate CSR",
+            Location = new System.Drawing.Point(170, 23),
+            Size = new System.Drawing.Size(120, 35),
+            Enabled = false
+        };
+        btnGenerateCSR.Click += BtnGenerateCSR_Click;
+
         btnImportCert = new Button
         {
             Text = "Import Certificate",
-            Location = new System.Drawing.Point(170, 23),
-            Size = new System.Drawing.Size(150, 35),
+            Location = new System.Drawing.Point(300, 23),
+            Size = new System.Drawing.Size(130, 35),
             Enabled = false
         };
         btnImportCert.Click += BtnImportCert_Click;
@@ -205,8 +215,8 @@ public partial class WindowsLogonForm : Form
         btnExportCert = new Button
         {
             Text = "Export Certificate",
-            Location = new System.Drawing.Point(330, 23),
-            Size = new System.Drawing.Size(150, 35),
+            Location = new System.Drawing.Point(440, 23),
+            Size = new System.Drawing.Size(130, 35),
             Enabled = false
         };
         btnExportCert.Click += BtnExportCert_Click;
@@ -214,15 +224,15 @@ public partial class WindowsLogonForm : Form
         btnVerifyCard = new Button
         {
             Text = "Verify Card Setup",
-            Location = new System.Drawing.Point(490, 23),
-            Size = new System.Drawing.Size(150, 35),
+            Location = new System.Drawing.Point(580, 23),
+            Size = new System.Drawing.Size(130, 35),
             Enabled = false
         };
         btnVerifyCard.Click += BtnVerifyCard_Click;
 
         grpCertificate.Controls.AddRange(new Control[]
         {
-            lblCertPin, txtCertPin, btnImportCert, btnExportCert, btnVerifyCard
+            lblCertPin, txtCertPin, btnGenerateCSR, btnImportCert, btnExportCert, btnVerifyCard
         });
 
         yPos += 90;
@@ -322,6 +332,7 @@ public partial class WindowsLogonForm : Form
                 btnInitialize.Enabled = true;
                 btnErase.Enabled = true;
                 btnGenerateKey.Enabled = true;
+                btnGenerateCSR.Enabled = true;
                 btnImportCert.Enabled = true;
                 btnExportCert.Enabled = true;
                 btnVerifyCard.Enabled = true;
@@ -389,9 +400,9 @@ public partial class WindowsLogonForm : Form
         }
     }
 
-    private void BtnErase_Click(object? sender, EventArgs e)
+    private async void BtnErase_Click(object? sender, EventArgs e)
     {
-        if (!_readerNumber.HasValue)
+        if (_card == null || !_readerNumber.HasValue)
         {
             MessageBox.Show("Please detect card first", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
@@ -400,16 +411,17 @@ public partial class WindowsLogonForm : Form
         var result = MessageBox.Show(
             "⚠️ CRITICAL WARNING ⚠️\n\n" +
             "This will COMPLETELY ERASE the card!\n\n" +
-            "IMPORTANT: You need the CURRENT SO-PIN that's on the card.\n" +
+            "IMPORTANT: Enter the CURRENT SO-PIN in the 'SO PIN' field below.\n" +
             "This is NOT the new SO-PIN you want to set - it's the one that was\n" +
             "used when the card was last initialized.\n\n" +
-            "A terminal window will open where you must enter the CURRENT SO-PIN.\n\n" +
-            "Common default SO-PINs to try:\n" +
-            "  • 12345678 (OpenSC default)\n" +
-            "  • 00000000 (some manufacturers)\n" +
-            "  • 3537363231383830 (hex ASCII for '57621880')\n\n" +
-            "If you don't know the SO-PIN and all defaults fail, the card\n" +
-            "may need to be factory reset by the manufacturer.\n\n" +
+            "Common default SO-PINs:\n" +
+            "  • 12345678 (OpenSC default - most common)\n" +
+            "  • 00000000 (some manufacturers)\n\n" +
+            "If you leave the SO-PIN field empty, the erase will attempt to work\n" +
+            "on blank/uninitialized cards (using --no-so-pin flag).\n\n" +
+            "⚠️ LOCKOUT WARNING:\n" +
+            "After ~5 failed SO-PIN attempts, the card will automatically\n" +
+            "factory reset itself, becoming blank/uninitialized.\n\n" +
             "ALL data will be PERMANENTLY DELETED.\n\n" +
             "Are you ABSOLUTELY SURE?",
             "Confirm Card Erasure",
@@ -421,52 +433,67 @@ public partial class WindowsLogonForm : Form
 
         try
         {
-            Log("=== Erasing Card (Interactive) ===");
-            Log($"Opening terminal window...");
-            Log($"IMPORTANT: You need to enter the CURRENT SO-PIN on the card");
-            Log($"Try common defaults if you don't know it:");
-            Log($"  • 12345678 (OpenSC default)");
-            Log($"  • 00000000 (some manufacturers)");
-            Log($"  • 3537363231383830 (hex ASCII)");
+            btnErase.Enabled = false;
+            Log("=== Erasing Card ===");
 
-            // Launch pkcs15-init in an interactive terminal
-            var pkcs15Init = @"C:\Program Files\OpenSC Project\OpenSC\tools\pkcs15-init.exe";
-            var args = $"--erase-card --reader {_readerNumber}";
+            var soPin = string.IsNullOrWhiteSpace(txtSoPin.Text) ? null : txtSoPin.Text;
 
-            var psi = new System.Diagnostics.ProcessStartInfo
+            if (soPin == null)
             {
-                FileName = "cmd.exe",
-                Arguments = $"/K \"\"{pkcs15Init}\" {args}\"",
-                UseShellExecute = true,
-                CreateNoWindow = false
-            };
+                Log("Attempting erase without SO-PIN (for blank/uninitialized cards)...");
+            }
+            else
+            {
+                Log($"Attempting erase with SO-PIN from form...");
+            }
 
-            var process = System.Diagnostics.Process.Start(psi);
+            await _card.EraseAsync(soPin, CancellationToken.None);
 
-            Log("✓ Terminal window opened");
+            Log("✓ Card erased successfully");
+            Log("Card is now blank/uninitialized");
+            Log("You can now click 'Initialize Card' to set up with new PINs");
 
             MessageBox.Show(
-                "A terminal window has opened.\n\n" +
-                "IMPORTANT: Enter the CURRENT SO-PIN (not the new one)\n\n" +
-                "Try these common defaults:\n" +
-                "  1. 12345678 (most common)\n" +
-                "  2. 00000000\n" +
-                "  3. 3537363231383830\n\n" +
-                "If 'invalid length' error appears, the PIN format might be wrong.\n" +
-                "If 'incorrect PIN' appears, try another default.\n\n" +
-                "⚠️ LOCKOUT WARNING:\n" +
-                "After ~5 failed SO-PIN attempts, the card will automatically\n" +
-                "factory reset itself, becoming blank/uninitialized.\n" +
-                "If this happens, you can re-initialize without needing SO-PIN.\n\n" +
-                "Close the terminal window when done and click OK.",
-                "Interactive Erase - Enter CURRENT SO-PIN",
+                "Card erased successfully!\n\n" +
+                "The card is now blank/uninitialized.\n" +
+                "You can now click 'Initialize Card' to set it up with new PINs.",
+                "Success",
                 MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+                MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            Log($"✗ Failed to launch erase tool: {ex.Message}");
-            MessageBox.Show($"Failed to launch erase tool:\n\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Log($"✗ Erase failed: {ex.Message}");
+
+            var errorMsg = ex.Message.ToLower();
+            if (errorMsg.Contains("incorrect") || errorMsg.Contains("authentication") || errorMsg.Contains("failed"))
+            {
+                MessageBox.Show(
+                    $"Erase failed - SO-PIN appears to be incorrect.\n\n" +
+                    $"Error: {ex.Message}\n\n" +
+                    "Try these common defaults in the SO-PIN field:\n" +
+                    "  • 12345678 (most common)\n" +
+                    "  • 00000000\n\n" +
+                    "If all defaults fail after ~5 attempts, the card will\n" +
+                    "automatically factory reset, then you can erase without SO-PIN.",
+                    "SO-PIN Incorrect",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"Erase failed:\n\n{ex.Message}\n\n" +
+                    "If the card is blank/uninitialized, leave the SO-PIN field empty.\n" +
+                    "If the card is initialized, enter the correct SO-PIN.",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+        finally
+        {
+            btnErase.Enabled = true;
         }
     }
 
@@ -597,6 +624,115 @@ public partial class WindowsLogonForm : Form
         finally
         {
             btnVerifyCard.Enabled = true;
+        }
+    }
+
+    private async void BtnGenerateCSR_Click(object? sender, EventArgs e)
+    {
+        if (_card == null || !_readerNumber.HasValue)
+        {
+            MessageBox.Show("Please detect card first", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+
+        btnGenerateCSR.Enabled = false;
+        try
+        {
+            Log("=== Generating Certificate Signing Request ===");
+
+            var saveDialog = new SaveFileDialog
+            {
+                Filter = "Certificate Request|*.csr|All Files|*.*",
+                Title = "Save Certificate Signing Request",
+                FileName = "card-certificate.csr",
+                DefaultExt = "csr"
+            };
+
+            if (saveDialog.ShowDialog() != DialogResult.OK)
+            {
+                Log("Operation cancelled");
+                return;
+            }
+
+            // Get username for CSR
+            var username = System.Environment.UserName;
+            var computer = System.Environment.MachineName;
+            var upn = $"{username}@{computer}";
+
+            // Prompt for subject details
+            var inputDialog = new Form
+            {
+                Text = "CSR Details",
+                Size = new System.Drawing.Size(450, 200),
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            var lblCN = new Label { Text = "Common Name (CN):", Location = new System.Drawing.Point(10, 20), AutoSize = true };
+            var txtCN = new TextBox { Location = new System.Drawing.Point(150, 17), Size = new System.Drawing.Size(270, 23), Text = username };
+
+            var lblUPN = new Label { Text = "UPN (for Windows):", Location = new System.Drawing.Point(10, 50), AutoSize = true };
+            var txtUPN = new TextBox { Location = new System.Drawing.Point(150, 47), Size = new System.Drawing.Size(270, 23), Text = upn };
+
+            var lblInfo = new Label
+            {
+                Text = "UPN must match your Windows username@computername\nfor smart card logon to work.",
+                Location = new System.Drawing.Point(10, 80),
+                Size = new System.Drawing.Size(420, 40),
+                ForeColor = System.Drawing.Color.DarkBlue
+            };
+
+            var btnOK = new Button { Text = "Generate", Location = new System.Drawing.Point(250, 120), DialogResult = DialogResult.OK };
+            var btnCancel = new Button { Text = "Cancel", Location = new System.Drawing.Point(340, 120), DialogResult = DialogResult.Cancel };
+
+            inputDialog.Controls.AddRange(new Control[] { lblCN, txtCN, lblUPN, txtUPN, lblInfo, btnOK, btnCancel });
+            inputDialog.AcceptButton = btnOK;
+            inputDialog.CancelButton = btnCancel;
+
+            if (inputDialog.ShowDialog() != DialogResult.OK)
+            {
+                Log("Operation cancelled");
+                return;
+            }
+
+            var cn = txtCN.Text.Trim();
+            var upnValue = txtUPN.Text.Trim();
+
+            if (string.IsNullOrEmpty(cn))
+            {
+                MessageBox.Show("Common Name cannot be empty", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            Log($"Generating CSR for CN={cn}, UPN={upnValue}");
+            Log($"This will use the key with ID 01 on the card");
+
+            await _card.GenerateCSRAsync(cn, upnValue, saveDialog.FileName, CancellationToken.None);
+
+            Log($"✓ CSR generated successfully!");
+            Log($"Saved to: {saveDialog.FileName}");
+            Log("");
+            Log("Next steps:");
+            Log("1. Sign the CSR with your CA");
+            Log("2. Import the signed certificate using 'Import Certificate' button");
+
+            MessageBox.Show(
+                $"CSR generated successfully!\n\nSaved to:\n{saveDialog.FileName}\n\nNext:\n1. Sign this CSR with your CA\n2. Import the signed certificate",
+                "Success",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
+        }
+        catch (Exception ex)
+        {
+            Log($"✗ CSR generation failed: {ex.Message}");
+            MessageBox.Show($"CSR generation failed:\n{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            btnGenerateCSR.Enabled = true;
         }
     }
 }
