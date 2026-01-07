@@ -4,7 +4,7 @@ obj/
 *.user
 *.suo
 *.cache
-
+*.md
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
@@ -82,4 +82,4 @@ packages/
 *~
 
 # Third-party source code (not for upload)
-NOUPLOAD/
+"AI Support"/*

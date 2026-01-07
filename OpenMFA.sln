@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenMFA.SmartCard", "src\Op
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenMFA.GUI", "src\OpenMFA.GUI\OpenMFA.GUI.csproj", "{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B5C6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SmartCardProvider", "src\SmartCardProvider\SmartCardProvider.vcxproj", "{E7F8A9B0-1234-4567-89AB-CDEF01234567}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,14 @@ Global
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B5C6}.Release|x64.Build.0 = Release|Any CPU
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B5C6}.Release|x86.ActiveCfg = Release|Any CPU
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B5C6}.Release|x86.Build.0 = Release|Any CPU
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Debug|x64.ActiveCfg = Debug|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Debug|x64.Build.0 = Debug|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Debug|x86.ActiveCfg = Debug|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Release|Any CPU.ActiveCfg = Release|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Release|x64.ActiveCfg = Release|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Release|x64.Build.0 = Release|x64
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,5 +60,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{EDCD6B88-808A-453F-A347-332DCD65BDBA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A1B2C3D4-E5F6-47A8-B9C0-D1E2F3A4B5C6} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{E7F8A9B0-1234-4567-89AB-CDEF01234567} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal
